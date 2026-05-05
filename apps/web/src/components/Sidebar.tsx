@@ -1,6 +1,10 @@
 import { ThemeToggle } from "./ThemeProvider";
+import { useAuthStore } from "../stores/authStore";
+import { supabase } from "../lib/supabaseClient";
 
 export function Sidebar() {
+  const user = useAuthStore((s) => s.user);
+
   return (
     <aside className="w-16 bg-base-200 border-r border-base-300 flex flex-col items-center py-4 gap-2">
       <div className="avatar placeholder mb-4">
@@ -17,6 +21,16 @@ export function Sidebar() {
         <SidebarButton label="Usuários" icon="⚙️" />
       </nav>
       <ThemeToggle />
+      {user && (
+        <button
+          type="button"
+          className="btn btn-ghost btn-square btn-sm"
+          title={`Sair (${user.fullName})`}
+          onClick={() => supabase.auth.signOut()}
+        >
+          ⎋
+        </button>
+      )}
     </aside>
   );
 }

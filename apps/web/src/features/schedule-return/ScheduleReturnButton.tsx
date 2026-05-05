@@ -1,7 +1,12 @@
 import { useRef } from "react";
 import { ScheduleReturnModal } from "./ScheduleReturnModal";
 
-export function ScheduleReturnButton() {
+type Props = {
+  contact: { name: string; phone: string };
+  conversationId: string;
+};
+
+export function ScheduleReturnButton({ contact, conversationId }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   return (
     <>
@@ -12,7 +17,7 @@ export function ScheduleReturnButton() {
       >
         Agendar Retorno
       </button>
-      <ScheduleReturnModal ref={dialogRef} />
+      <ScheduleReturnModal ref={dialogRef} contact={contact} conversationId={conversationId} />
     </>
   );
 }
