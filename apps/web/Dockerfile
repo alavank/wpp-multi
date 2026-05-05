@@ -18,9 +18,11 @@ COPY apps/web apps/web
 RUN pnpm --filter @wpp/web build
 
 FROM nginx:1.27-alpine AS runtime
+# Remove default.conf que vem na imagem para evitar conflito de "listen 80".
+RUN rm -f /etc/nginx/conf.d/default.conf
 COPY --from=build /repo/apps/web/dist /usr/share/nginx/html
-# Template — substitui ${PORT} via envsubst no startup.
 COPY apps/web/nginx.conf /etc/nginx/templates/default.conf.template
-ENV PORT=80
-EXPOSE 80
-# A imagem nginx oficial já faz envsubst em /etc/nginx/templates/*.template.
+COPY apps/web/docker-entrypoint.sh /docker-entrypoint-wpp.sh
+RUN chmod +x /docker-entrypoint-wpp.sh
+EXPOSE 8080
+ENTRYPOINT ["/docker-entrypoint-wpp.sh"]
