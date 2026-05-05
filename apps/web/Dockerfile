@@ -21,8 +21,8 @@ FROM nginx:1.27-alpine AS runtime
 # Remove default.conf que vem na imagem para evitar conflito de "listen 80".
 RUN rm -f /etc/nginx/conf.d/default.conf
 COPY --from=build /repo/apps/web/dist /usr/share/nginx/html
-COPY apps/web/nginx.conf /etc/nginx/templates/default.conf.template
 COPY apps/web/docker-entrypoint.sh /docker-entrypoint-wpp.sh
-RUN chmod +x /docker-entrypoint-wpp.sh
+# Invocação explícita via /bin/sh contorna possíveis bits +x perdidos em
+# checkouts no Windows. Não dependemos do script ser executável.
 EXPOSE 8080
-ENTRYPOINT ["/docker-entrypoint-wpp.sh"]
+ENTRYPOINT ["/bin/sh", "/docker-entrypoint-wpp.sh"]
