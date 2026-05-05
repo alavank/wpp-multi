@@ -61,6 +61,7 @@ alter table public.scheduled_returns   enable row level security;
 alter table public.groups              enable row level security;
 alter table public.group_members       enable row level security;
 alter table public.audit_logs          enable row level security;
+alter table public.user_permissions    enable row level security;
 
 -- ---------------------------------------------------------------------
 -- Policies SELECT
@@ -176,6 +177,11 @@ create policy "select audit_logs (super admin only)"
 on public.audit_logs for select
 to authenticated
 using (public.is_super_admin());
+
+create policy "select user_permissions self or super admin"
+on public.user_permissions for select
+to authenticated
+using ("userId" = auth.uid() or public.is_super_admin());
 
 -- ---------------------------------------------------------------------
 -- Policies de escrita

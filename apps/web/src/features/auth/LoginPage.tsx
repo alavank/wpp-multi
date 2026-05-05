@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
+import { apiFetch } from "../../lib/apiClient";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -21,6 +22,8 @@ export function LoginPage() {
       setError(error.message);
       return;
     }
+    // Registro de auditoria do login (best-effort).
+    apiFetch("/users/login-event", { method: "POST" }).catch(() => undefined);
     navigate(from, { replace: true });
   }
 

@@ -87,6 +87,13 @@ export const messagesRoutes: FastifyPluginAsync = async (app) => {
       where: { id: conv.id },
       data: { lastMessageAt: saved.sentAt },
     });
+    await req.audit.emit({
+      action: "message.send_text",
+      entityType: "message",
+      entityId: saved.id,
+      departmentId: conv.departmentId,
+      metadata: { conversationId: conv.id, length: data.body.length },
+    });
 
     return saved;
   });
@@ -134,6 +141,13 @@ export const messagesRoutes: FastifyPluginAsync = async (app) => {
     await app.prisma.conversation.update({
       where: { id: conv.id },
       data: { lastMessageAt: saved.sentAt },
+    });
+    await req.audit.emit({
+      action: "message.send_media",
+      entityType: "message",
+      entityId: saved.id,
+      departmentId: conv.departmentId,
+      metadata: { conversationId: conv.id, type: data.type, mediaId: data.mediaId },
     });
 
     return saved;

@@ -7,6 +7,7 @@ import { ScheduleReturnButton } from "../schedule-return/ScheduleReturnButton";
 import { useConversations } from "../../hooks/useConversations";
 import { MediaBubble } from "./MediaBubble";
 import { Avatar } from "../../components/Avatar";
+import { DepartmentTag } from "../../components/DepartmentTag";
 
 type Props = { className?: string };
 
@@ -51,9 +52,14 @@ export function ChatPanel({ className }: Props) {
       <header className="border-b border-base-300 px-4 py-3 flex items-center gap-3">
         <Avatar name={contactName} src={conversation.contact.profilePicUrl ?? undefined} />
         <div className="flex-1 min-w-0">
-          <div className="font-medium truncate">{contactName}</div>
-          <div className="text-xs opacity-60">
-            <StatusBadge status={conversation.status} /> · {conversation.contact.phoneE164}
+          <div className="flex items-center gap-2">
+            <span className="font-medium truncate">{contactName}</span>
+            <DepartmentTag departmentId={conversation.departmentId} />
+          </div>
+          <div className="text-xs opacity-60 flex items-center gap-2">
+            <StatusBadge status={conversation.status} />
+            <span>·</span>
+            <span>{conversation.contact.phoneE164}</span>
           </div>
         </div>
 

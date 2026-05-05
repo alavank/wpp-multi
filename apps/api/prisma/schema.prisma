@@ -70,6 +70,28 @@ enum WhatsappSessionStatus {
   QR_PENDING
 }
 
+// Permissões granulares (concedidas por usuário, opcionalmente escopadas a um departamento).
+enum Permission {
+  CONVERSATION_VIEW
+  CONVERSATION_ASSUME
+  CONVERSATION_FINISH
+  CONVERSATION_REOPEN
+  MESSAGE_SEND
+  MESSAGE_SEND_MEDIA
+  TRANSFER_CREATE
+  TRANSFER_RESPOND
+  SCHEDULED_RETURN_CREATE
+  SCHEDULED_RETURN_CANCEL
+  CONTACT_EDIT
+  CONTACT_NOTE_WRITE
+  GROUP_VIEW
+  WHATSAPP_SESSION_MANAGE
+  USER_MANAGE
+  DEPARTMENT_MANAGE
+  AUDIT_VIEW
+  MONITOR_VIEW
+}
+
 // ---------------------------------------------------------------------
 // Departamentos / Setores
 // ---------------------------------------------------------------------
@@ -110,6 +132,7 @@ model User {
   deletedAt   DateTime?
 
   memberships         DepartmentMember[]
+  permissions         UserPermission[]
   assignedConversations Conversation[]   @relation("AssignedAgent")
   finishedConversations Conversation[]   @relation("FinishedBy")
   sentMessages        Message[]          @relation("MessageSender")
@@ -376,21 +399,50 @@ model GroupMember {
 }
 
 // ---------------------------------------------------------------------
-// AuditLog (auditoria de transferências, encerramentos, etc.)
+// AuditLog — toda ação relevante grava: usuário, ação, timestamp, IP,
+// localização (best-effort), dispositivo e User-Agent.
 // ---------------------------------------------------------------------
 
 model AuditLog {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  actorUserId  String?  @db.Uuid
-  action       String
-  entityType   String
-  entityId     String?  @db.Uuid
-  metadata     Json     @default("{}")
-  createdAt    DateTime @default(now())
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorUserId   String?  @db.Uuid
+  actorName     String?
+  departmentId  String?  @db.Uuid
+  action        String
+  entityType    String
+  entityId      String?  @db.Uuid
+  metadata      Json     @default("{}")
+  ipAddress     String?
+  userAgent     String?
+  device        String?
+  location      String?
+  createdAt     DateTime @default(now())
 
   actor User? @relation(fields: [actorUserId], references: [id])
 
   @@index([entityType, entityId])
   @@index([actorUserId, createdAt])
+  @@index([action, createdAt])
+  @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------
+// UserPermission — RBAC granular por usuário.
+// Se departmentId for null, a permissão vale globalmente para esse usuário.
+// ---------------------------------------------------------------------
+
+model UserPermission {
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String     @db.Uuid
+  permission    Permission
+  departmentId  String?    @db.Uuid
+  grantedById   String?    @db.Uuid
+  createdAt     DateTime   @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permission, departmentId])
+  @@index([userId])
+  @@map("user_permissions")
 }

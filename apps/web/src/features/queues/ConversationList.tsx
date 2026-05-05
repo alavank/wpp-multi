@@ -3,6 +3,7 @@ import { useQueueStore } from "../../stores/queueStore";
 import { useSelectionStore } from "../../stores/selectionStore";
 import { useConversations, type ApiConversation } from "../../hooks/useConversations";
 import { Avatar } from "../../components/Avatar";
+import { DepartmentTag } from "../../components/DepartmentTag";
 import { relativeTime } from "../../lib/avatar";
 
 export function ConversationList() {
@@ -148,11 +149,12 @@ function ConversationRow({
           </span>
         </div>
         <div className="flex justify-between gap-2 items-center">
-          <span className="text-xs opacity-70 truncate">{conv.contact.phoneE164}</span>
+          <DepartmentTag departmentId={conv.departmentId} />
           {conv.unreadCount > 0 && (
             <span className="badge badge-primary badge-sm shrink-0">{conv.unreadCount}</span>
           )}
         </div>
+        <div className="text-xs opacity-70 truncate mt-0.5">{conv.contact.phoneE164}</div>
       </div>
     </li>
   );

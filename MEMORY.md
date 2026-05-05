@@ -35,7 +35,11 @@ Sistema **on-premise** de **multiatendimento WhatsApp** para uso em vários depa
 | **Admin de Departamento** (Coordenador) | Dashboards de produtividade do setor, controle de filas, gestão de dados da equipe |
 | **Atendente** | Acessa filas do(s) setor(es) que pertence, atende, transfere, encerra, visualiza histórico. Cadastro exige Nome Completo + Foto |
 
-Um usuário pode pertencer a **múltiplos departamentos** (`DepartmentMember`).
+Um usuário pode pertencer a **múltiplos departamentos** (`DepartmentMember`). O **role** (Super/Dept admin/Agent) é o piso de capacidades — o **RBAC granular por usuário** vive em `UserPermission` (concede/revoga ações específicas, opcionalmente escopado a um departamento).
+
+### Multi-departamento na UI
+
+Como um mesmo atendente pode estar em vários setores ao mesmo tempo, **toda conversa exibe uma tag colorida com o nome do departamento** na lista de filas e no header do chat. A cor é estável por `departmentId` para evitar confusão entre setores.
 
 ---
 
@@ -86,6 +90,14 @@ Botão "Agendar Retorno" dentro do chat ativo abre modal com:
 Se `notifyOnSave=true`, sistema envia mensagem de confirmação no chat ao salvar.
 
 ---
+
+## Auditoria e logs
+
+Toda ação relevante grava em `AuditLog` com **Usuário**, **Ação**, **Timestamp**, **IP**, **Localização** (best-effort via header `X-Geo` ou geolookup futuro), **Dispositivo** e **User-Agent**. A captura é feita por hook Fastify (`auditPlugin`) que decora `req.audit.emit(action, entity?, metadata?)` — rotas chamam esse helper nas transições críticas (login, assumir, encerrar, transferir, enviar, criar departamento/usuário, etc.). O painel `/admin/audit` consulta com filtros (usuário, ação, intervalo).
+
+## Monitoramento em tempo real (Timeline futurista)
+
+Página `/admin/monitor` renderiza uma **timeline horizontal animada** alimentada por Supabase Realtime na tabela `audit_logs`. Cada evento entra como card pela direita e desliza por 60–120s até sair pela esquerda. O eixo Y é calculado para evitar sobreposição: alocação em **lanes** (faixas horizontais) com algoritmo first-fit — se uma lane está ocupada por um card cuja janela ainda intersecta a do novo, escolhe-se outra lane.
 
 ## Funcionalidades de chat (resumo)
 

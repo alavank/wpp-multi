@@ -27,6 +27,16 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
     return req.auth;
   });
 
+  /** Notifica o backend que o usuário acabou de logar (audit). */
+  app.post("/login-event", async (req) => {
+    await req.audit.emit({
+      action: "user.login",
+      entityType: "user",
+      entityId: req.auth.id,
+    });
+    return { ok: true };
+  });
+
   app.get("/", async (req, reply) => {
     if (!assertRole(req, reply, "SUPER_ADMIN", "DEPT_ADMIN")) return;
     const items = await app.prisma.user.findMany({

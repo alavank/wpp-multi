@@ -76,6 +76,12 @@ export const conversationsRoutes: FastifyPluginAsync = async (app) => {
           agentFullName: req.auth.fullName,
         }),
       );
+      await req.audit.emit({
+        action: "conversation.assume",
+        entityType: "conversation",
+        entityId: id,
+        departmentId: conv.departmentId,
+      });
       return updated;
     } catch (err) {
       return reply.conflict((err as Error).message);
@@ -92,6 +98,12 @@ export const conversationsRoutes: FastifyPluginAsync = async (app) => {
       const updated = await app.prisma.$transaction((tx) =>
         finishConversation(tx, { conversationId: id, userId: req.auth.id }),
       );
+      await req.audit.emit({
+        action: "conversation.finish",
+        entityType: "conversation",
+        entityId: id,
+        departmentId: conv.departmentId,
+      });
       return updated;
     } catch (err) {
       return reply.conflict((err as Error).message);

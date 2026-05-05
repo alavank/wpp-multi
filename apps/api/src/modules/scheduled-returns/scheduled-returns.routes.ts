@@ -55,6 +55,13 @@ export const scheduledReturnsRoutes: FastifyPluginAsync = async (app) => {
         notifyOnSave: data.notifyOnSave,
       },
     });
+    await req.audit.emit({
+      action: "scheduled_return.create",
+      entityType: "scheduled_return",
+      entityId: created.id,
+      departmentId: conv.departmentId,
+      metadata: { scheduledFor: data.scheduledFor, notifyOnSave: data.notifyOnSave },
+    });
 
     if (data.notifyOnSave) {
       const when = data.scheduledFor.toLocaleString("pt-BR");

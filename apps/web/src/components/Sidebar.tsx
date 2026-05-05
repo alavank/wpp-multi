@@ -17,6 +17,24 @@ export function Sidebar() {
       <nav className="flex flex-col gap-1 flex-1">
         <NavBtn to="/" label="Filas" icon="📥" active={location.pathname === "/"} />
         <NavBtn
+          to="/admin/monitor"
+          label="Monitor em tempo real"
+          icon="📡"
+          active={location.pathname.startsWith("/admin/monitor")}
+        />
+        <NavBtn
+          to="/admin/audit"
+          label="Auditoria"
+          icon="🪵"
+          active={location.pathname.startsWith("/admin/audit")}
+        />
+        <NavBtn
+          to="/admin/permissions"
+          label="Permissões"
+          icon="🔐"
+          active={location.pathname.startsWith("/admin/permissions")}
+        />
+        <NavBtn
           to="/admin/departments"
           label="Departamentos"
           icon="🏢"

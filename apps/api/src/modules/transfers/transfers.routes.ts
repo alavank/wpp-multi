@@ -62,6 +62,13 @@ export const transfersRoutes: FastifyPluginAsync = async (app) => {
         note: data.note,
       },
     });
+    await req.audit.emit({
+      action: "transfer.create",
+      entityType: "transfer",
+      entityId: transfer.id,
+      departmentId: conv.departmentId,
+      metadata: { toUserId: data.toUserId },
+    });
     return transfer;
   });
 
@@ -82,7 +89,7 @@ export const transfersRoutes: FastifyPluginAsync = async (app) => {
     const status = accept ? "ACCEPTED" : "REJECTED";
     const now = new Date();
 
-    return app.prisma.$transaction(async (tx) => {
+    const result = await app.prisma.$transaction(async (tx) => {
       const updated = await tx.transfer.update({
         where: { id },
         data: { status, respondedAt: now },
@@ -96,6 +103,13 @@ export const transfersRoutes: FastifyPluginAsync = async (app) => {
       }
       return updated;
     });
+    await req.audit.emit({
+      action: accept ? "transfer.accept" : "transfer.reject",
+      entityType: "transfer",
+      entityId: id,
+      departmentId: transfer.conversation.departmentId,
+    });
+    return result;
   });
 
   app.post("/:id/cancel", async (req, reply) => {

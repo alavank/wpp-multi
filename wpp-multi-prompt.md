@@ -19,6 +19,24 @@ O sistema será hospedado em infraestrutura on-premise para uso em diversos depa
 - Atendente: Acessa filas do setor, atende, transfere e visualiza histórico. Exige cadastro com Nome Completo e Foto.
 </regras_de_negocio_e_hierarquia>
 
+<permissoes_e_multi_departamento>
+- O controle de acesso (RBAC) deve ser granular e definido por usuário individualmente, não apenas por perfil.
+- Um usuário pode ser vinculado a múltiplos departamentos simultaneamente.
+- Na interface de atendimento, chats vindos de departamentos distintos para o mesmo usuário devem exibir uma tag visual clara (ex: cor ou label com o nome do setor) para evitar confusão.
+</permissoes_e_multi_departamento>
+
+<auditoria_e_logs>
+- Implementar registro de logs detalhado para todas as ações do sistema.
+- Estrutura de dados exigida para cada log: Usuário, Ação (o que fez), Timestamp (dia/hora exatos), IP, Localização, Dispositivo e Navegador (User-Agent).
+</auditoria_e_logs>
+
+<monitoramento_realtime_timeline>
+- Criar um módulo de Dashboard de Monitoramento em Tempo Real com design futurista focado na atividade instantânea.
+- Interface principal: Uma "Timeline" animada horizontalmente (janela de tempo de 1 a 2 minutos visíveis).
+- Comportamento visual: Eventos (ex: "Usuário X logou", "Usuário Y iniciou atendimento do número Z") surgem do lado direito em formato de cards/balões e deslizam continuamente para a esquerda até desaparecerem.
+- Prevenção de colisão: O posicionamento vertical dos cards deve ser aleatório ou calculado em eixos separados para impedir sobreposição (encavalamento) de eventos simultâneos.
+</monitoramento_realtime_timeline>
+
 <fluxo_de_atendimento>
 1. Retenção de histórico completo do contato (mínimo de 1 ano).
 2. Mensagem automática ao assumir chat: "[Nome do Atendente] vai iniciar seu atendimento...".
