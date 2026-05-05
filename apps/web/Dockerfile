@@ -19,6 +19,8 @@ RUN pnpm --filter @wpp/web build
 
 FROM nginx:1.27-alpine AS runtime
 COPY --from=build /repo/apps/web/dist /usr/share/nginx/html
-COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
+# Template — substitui ${PORT} via envsubst no startup.
+COPY apps/web/nginx.conf /etc/nginx/templates/default.conf.template
+ENV PORT=80
 EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+# A imagem nginx oficial já faz envsubst em /etc/nginx/templates/*.template.
