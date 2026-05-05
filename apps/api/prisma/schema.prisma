@@ -1,0 +1,396 @@
+// =====================================================================
+// wpp-multi — schema do banco
+// PostgreSQL via Supabase. Auth de usuários delegada a auth.users (Supabase),
+// User.id deste schema = auth.users.id.
+// =====================================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [pgcrypto]
+}
+
+// ---------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------
+
+enum Role {
+  SUPER_ADMIN
+  DEPT_ADMIN
+  AGENT
+}
+
+enum ConversationStatus {
+  WAITING
+  IN_PROGRESS
+  FINISHED
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  AUDIO
+  VIDEO
+  DOCUMENT
+  STICKER
+  LOCATION
+  CONTACT
+  INSTANT_VIDEO
+  SYSTEM
+}
+
+enum TransferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+enum ScheduledReturnStatus {
+  PENDING
+  NOTIFIED
+  DONE
+  CANCELLED
+}
+
+enum WhatsappSessionStatus {
+  CONNECTED
+  DISCONNECTED
+  QR_PENDING
+}
+
+// ---------------------------------------------------------------------
+// Departamentos / Setores
+// ---------------------------------------------------------------------
+
+model Department {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String
+  description     String?
+  whatsappNumber  String   @unique
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+
+  members         DepartmentMember[]
+  conversations   Conversation[]
+  contacts        Contact[]
+  groups          Group[]
+  whatsappSession WhatsappSession?
+
+  @@map("departments")
+}
+
+// ---------------------------------------------------------------------
+// Usuários (perfil estendido sobre auth.users do Supabase)
+// id = auth.users.id
+// ---------------------------------------------------------------------
+
+model User {
+  id          String   @id @db.Uuid
+  email       String   @unique
+  fullName    String
+  photoUrl    String?
+  role        Role     @default(AGENT)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  memberships         DepartmentMember[]
+  assignedConversations Conversation[]   @relation("AssignedAgent")
+  finishedConversations Conversation[]   @relation("FinishedBy")
+  sentMessages        Message[]          @relation("MessageSender")
+  notesAuthored       ContactNote[]
+  transfersSent       Transfer[]         @relation("TransferFrom")
+  transfersReceived   Transfer[]         @relation("TransferTo")
+  scheduledReturns    ScheduledReturn[]  @relation("ScheduledReturnAgent")
+  auditLogs           AuditLog[]
+
+  @@index([role])
+  @@map("users")
+}
+
+// Vínculo N—N de usuários a departamentos.
+model DepartmentMember {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @db.Uuid
+  departmentId String   @db.Uuid
+  isAdmin      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, departmentId])
+  @@index([departmentId])
+  @@map("department_members")
+}
+
+// ---------------------------------------------------------------------
+// Sessão Baileys por departamento
+// ---------------------------------------------------------------------
+
+model WhatsappSession {
+  id           String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  departmentId String                @unique @db.Uuid
+  authPath     String
+  status       WhatsappSessionStatus @default(DISCONNECTED)
+  lastQrCode   String?
+  connectedAt  DateTime?
+  lastSeenAt   DateTime?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@map("whatsapp_sessions")
+}
+
+// ---------------------------------------------------------------------
+// Contatos (clientes WhatsApp)
+// ---------------------------------------------------------------------
+
+model Contact {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  departmentId   String   @db.Uuid
+  phoneE164      String
+  displayName    String?
+  pushName       String?
+  profilePicUrl  String?
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  department       Department        @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  conversations    Conversation[]
+  notes            ContactNote[]
+  scheduledReturns ScheduledReturn[]
+
+  @@unique([departmentId, phoneE164])
+  @@index([departmentId])
+  @@map("contacts")
+}
+
+model ContactNote {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contactId String   @db.Uuid
+  authorId  String   @db.Uuid
+  body      String
+  createdAt DateTime @default(now())
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  author  User    @relation(fields: [authorId], references: [id])
+
+  @@index([contactId])
+  @@map("contact_notes")
+}
+
+// ---------------------------------------------------------------------
+// Conversas (uma por contato + departamento, mas várias ao longo do tempo)
+// ---------------------------------------------------------------------
+
+model Conversation {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  departmentId     String             @db.Uuid
+  contactId        String             @db.Uuid
+  status           ConversationStatus @default(WAITING)
+  assignedAgentId  String?            @db.Uuid
+  assignedAt       DateTime?
+  finishedAt       DateTime?
+  finishedById     String?            @db.Uuid
+  waitingSince     DateTime?
+  lastMessageAt    DateTime?
+  unreadCount      Int                @default(0)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  department       Department         @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  contact          Contact            @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  assignedAgent    User?              @relation("AssignedAgent", fields: [assignedAgentId], references: [id])
+  finishedBy       User?              @relation("FinishedBy", fields: [finishedById], references: [id])
+  messages         Message[]
+  transfers        Transfer[]
+  scheduledReturns ScheduledReturn[]
+
+  @@index([departmentId, status, waitingSince])
+  @@index([assignedAgentId, status])
+  @@index([contactId, createdAt])
+  @@map("conversations")
+}
+
+// ---------------------------------------------------------------------
+// Mensagens
+// ---------------------------------------------------------------------
+
+model Message {
+  id                    String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId        String           @db.Uuid
+  whatsappMessageId     String?
+  direction             MessageDirection
+  type                  MessageType      @default(TEXT)
+  body                  String?
+  senderUserId          String?          @db.Uuid
+  agentDisplayPrefix    String?
+  quotedMessageId       String?          @db.Uuid
+  groupParticipantPhone String?
+  mediaId               String?          @db.Uuid
+  metadata              Json             @default("{}")
+  sentAt                DateTime         @default(now())
+  deliveredAt           DateTime?
+  readAt                DateTime?
+  createdAt             DateTime         @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User?        @relation("MessageSender", fields: [senderUserId], references: [id])
+  media        MediaAsset?  @relation(fields: [mediaId], references: [id])
+  quoted       Message?     @relation("QuotedMessage", fields: [quotedMessageId], references: [id])
+  replies      Message[]    @relation("QuotedMessage")
+
+  @@unique([conversationId, whatsappMessageId])
+  @@index([conversationId, sentAt])
+  @@index([sentAt])
+  @@map("messages")
+}
+
+// ---------------------------------------------------------------------
+// Anexos de mídia (armazenados localmente — on-premise)
+// ---------------------------------------------------------------------
+
+model MediaAsset {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  mimeType      String
+  sizeBytes     Int
+  localPath     String
+  remoteUrl     String?
+  durationMs    Int?
+  width         Int?
+  height        Int?
+  thumbnailPath String?
+  createdAt     DateTime @default(now())
+
+  messages Message[]
+
+  @@map("media_assets")
+}
+
+// ---------------------------------------------------------------------
+// Transferências entre atendentes
+// ---------------------------------------------------------------------
+
+model Transfer {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String         @db.Uuid
+  fromUserId     String         @db.Uuid
+  toUserId       String         @db.Uuid
+  status         TransferStatus @default(PENDING)
+  note           String?
+  createdAt      DateTime       @default(now())
+  respondedAt    DateTime?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  fromUser     User         @relation("TransferFrom", fields: [fromUserId], references: [id])
+  toUser       User         @relation("TransferTo", fields: [toUserId], references: [id])
+
+  @@index([fromUserId, status])
+  @@index([toUserId, status])
+  @@index([conversationId])
+  @@map("transfers")
+}
+
+// ---------------------------------------------------------------------
+// Agendamento de retorno
+// ---------------------------------------------------------------------
+
+model ScheduledReturn {
+  id             String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String                @db.Uuid
+  contactId      String                @db.Uuid
+  agentId        String                @db.Uuid
+  scheduledFor   DateTime
+  subject        String
+  notifyOnSave   Boolean               @default(false)
+  status         ScheduledReturnStatus @default(PENDING)
+  notifiedAt     DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  contact      Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  agent        User         @relation("ScheduledReturnAgent", fields: [agentId], references: [id])
+
+  @@index([scheduledFor, status])
+  @@index([agentId, status])
+  @@map("scheduled_returns")
+}
+
+// ---------------------------------------------------------------------
+// Grupos do número WhatsApp do departamento
+// ---------------------------------------------------------------------
+
+model Group {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  departmentId      String   @db.Uuid
+  whatsappJid       String
+  name              String
+  description       String?
+  iconUrl           String?
+  participantsCount Int      @default(0)
+  lastSyncedAt      DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  department Department    @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  members    GroupMember[]
+
+  @@unique([departmentId, whatsappJid])
+  @@index([departmentId])
+  @@map("groups")
+}
+
+model GroupMember {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  groupId      String   @db.Uuid
+  phoneE164    String
+  displayName  String?
+  isAdmin      Boolean  @default(false)
+  lastSyncedAt DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, phoneE164])
+  @@index([groupId])
+  @@map("group_members")
+}
+
+// ---------------------------------------------------------------------
+// AuditLog (auditoria de transferências, encerramentos, etc.)
+// ---------------------------------------------------------------------
+
+model AuditLog {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorUserId  String?  @db.Uuid
+  action       String
+  entityType   String
+  entityId     String?  @db.Uuid
+  metadata     Json     @default("{}")
+  createdAt    DateTime @default(now())
+
+  actor User? @relation(fields: [actorUserId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([actorUserId, createdAt])
+  @@map("audit_logs")
+}
