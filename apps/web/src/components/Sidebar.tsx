@@ -1,24 +1,33 @@
+import { Link, useLocation } from "react-router-dom";
 import { ThemeToggle } from "./ThemeProvider";
 import { useAuthStore } from "../stores/authStore";
 import { supabase } from "../lib/supabaseClient";
 
 export function Sidebar() {
   const user = useAuthStore((s) => s.user);
+  const location = useLocation();
 
   return (
     <aside className="w-16 bg-base-200 border-r border-base-300 flex flex-col items-center py-4 gap-2">
-      <div className="avatar placeholder mb-4">
+      <Link to="/" className="avatar placeholder mb-4">
         <div className="bg-primary text-primary-content rounded-full w-10">
           <span className="text-sm font-semibold">W</span>
         </div>
-      </div>
+      </Link>
       <nav className="flex flex-col gap-1 flex-1">
-        <SidebarButton label="Filas" icon="📥" active />
-        <SidebarButton label="Contatos" icon="👤" />
-        <SidebarButton label="Grupos" icon="👥" />
-        <SidebarButton label="Agendamentos" icon="📅" />
-        <SidebarButton label="Departamentos" icon="🏢" />
-        <SidebarButton label="Usuários" icon="⚙️" />
+        <NavBtn to="/" label="Filas" icon="📥" active={location.pathname === "/"} />
+        <NavBtn
+          to="/admin/departments"
+          label="Departamentos"
+          icon="🏢"
+          active={location.pathname.startsWith("/admin/departments")}
+        />
+        <NavBtn
+          to="/admin/users"
+          label="Usuários"
+          icon="⚙️"
+          active={location.pathname.startsWith("/admin/users")}
+        />
       </nav>
       <ThemeToggle />
       {user && (
@@ -35,22 +44,25 @@ export function Sidebar() {
   );
 }
 
-function SidebarButton({
+function NavBtn({
+  to,
   label,
   icon,
   active,
 }: {
+  to: string;
   label: string;
   icon: string;
   active?: boolean;
 }) {
   return (
-    <button
-      type="button"
+    <Link
+      to={to}
       title={label}
       className={`btn btn-ghost btn-square ${active ? "btn-active" : ""}`}
+      aria-label={label}
     >
       <span aria-hidden>{icon}</span>
-    </button>
+    </Link>
   );
 }

@@ -2,6 +2,8 @@ import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom"
 import { AppShell } from "./AppShell";
 import { LoginPage } from "../features/auth/LoginPage";
 import { RequireAuth } from "./RequireAuth";
+import { DepartmentsPage } from "../features/departments/DepartmentsPage";
+import { UsersPage } from "../features/users/UsersPage";
 
 const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -10,6 +12,22 @@ const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <AppShell />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: "/admin/departments",
+    element: (
+      <RequireAuth>
+        <DepartmentsPage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: "/admin/users",
+    element: (
+      <RequireAuth>
+        <UsersPage />
       </RequireAuth>
     ),
   },

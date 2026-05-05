@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useSelectionStore } from "../../stores/selectionStore";
 import { useAuthStore } from "../../stores/authStore";
-import { useMessages } from "../../hooks/useMessages";
+import { useMessages, type ApiMessage } from "../../hooks/useMessages";
 import { apiFetch } from "../../lib/apiClient";
 import { ScheduleReturnButton } from "../schedule-return/ScheduleReturnButton";
 import { useConversations } from "../../hooks/useConversations";
+import { MediaBubble } from "./MediaBubble";
+import { Avatar } from "../../components/Avatar";
 
 type Props = { className?: string };
 
@@ -13,13 +15,10 @@ export function ChatPanel({ className }: Props) {
   const conversationId = useSelectionStore((s) => s.conversationId);
   const userId = useAuthStore((s) => s.user?.id);
 
-  // Recupera a conversa selecionada a partir das listas em cache.
-  const { items: allConvs, refetch: refetchConvs } = useConversations({
-    departmentId,
-  });
+  const { items: allConvs, refetch: refetchConvs } = useConversations({ departmentId });
   const conversation = allConvs.find((c) => c.id === conversationId) ?? null;
 
-  const { items: messages, sendText } = useMessages(conversationId);
+  const { items: messages, sendText, sendMedia } = useMessages(conversationId);
 
   if (!conversation) {
     return (
@@ -50,15 +49,11 @@ export function ChatPanel({ className }: Props) {
   return (
     <section className={`flex flex-col bg-base-100 ${className ?? ""}`}>
       <header className="border-b border-base-300 px-4 py-3 flex items-center gap-3">
-        <div className="avatar placeholder">
-          <div className="bg-neutral text-neutral-content rounded-full w-10">
-            <span className="text-xs">{initials(contactName)}</span>
-          </div>
-        </div>
+        <Avatar name={contactName} src={conversation.contact.profilePicUrl ?? undefined} />
         <div className="flex-1 min-w-0">
           <div className="font-medium truncate">{contactName}</div>
           <div className="text-xs opacity-60">
-            {conversation.status} · {conversation.contact.phoneE164}
+            <StatusBadge status={conversation.status} /> · {conversation.contact.phoneE164}
           </div>
         </div>
 
@@ -81,7 +76,7 @@ export function ChatPanel({ className }: Props) {
 
       <MessageList items={messages} currentUserId={userId} />
 
-      <Composer disabled={!canSend} onSend={sendText} />
+      <Composer disabled={!canSend} onSendText={sendText} onSendMedia={sendMedia} />
     </section>
   );
 }
@@ -90,7 +85,7 @@ function MessageList({
   items,
   currentUserId,
 }: {
-  items: { id: string; body: string | null; direction: "INBOUND" | "OUTBOUND"; type: string; sentAt: string; sender: { id: string; fullName: string } | null }[];
+  items: ApiMessage[];
   currentUserId?: string;
 }) {
   if (items.length === 0) {
@@ -118,10 +113,14 @@ function MessageList({
           >
             <div
               className={`chat-bubble ${
-                mine ? "chat-bubble-primary" : m.direction === "OUTBOUND" ? "" : "chat-bubble-neutral"
+                mine
+                  ? "chat-bubble-primary"
+                  : m.direction === "OUTBOUND"
+                    ? ""
+                    : "chat-bubble-neutral"
               }`}
             >
-              {m.body}
+              {m.mediaId ? <MediaBubble message={m} /> : m.body}
             </div>
             <div className="chat-footer text-xs opacity-50">
               {new Date(m.sentAt).toLocaleTimeString("pt-BR", {
@@ -136,22 +135,45 @@ function MessageList({
   );
 }
 
+type SendMediaFn = (
+  file: File,
+  type: "IMAGE" | "AUDIO" | "VIDEO" | "DOCUMENT" | "INSTANT_VIDEO",
+  caption?: string,
+) => Promise<unknown>;
+
 function Composer({
   disabled,
-  onSend,
+  onSendText,
+  onSendMedia,
 }: {
   disabled: boolean;
-  onSend: (body: string) => Promise<unknown>;
+  onSendText: (body: string) => Promise<unknown>;
+  onSendMedia: SendMediaFn;
 }) {
   const [value, setValue] = useState("");
   const [sending, setSending] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
 
-  async function handle(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!value.trim() || disabled) return;
     setSending(true);
     try {
-      await onSend(value.trim());
+      await onSendText(value.trim());
+      setValue("");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setSending(true);
+    try {
+      const type = inferType(file);
+      await onSendMedia(file, type, value.trim() || undefined);
       setValue("");
     } finally {
       setSending(false);
@@ -159,8 +181,21 @@ function Composer({
   }
 
   return (
-    <form onSubmit={handle} className="border-t border-base-300 p-3 flex gap-2">
-      <button type="button" className="btn btn-ghost btn-square btn-sm" aria-label="Anexar" disabled>
+    <form onSubmit={handleSubmit} className="border-t border-base-300 p-3 flex gap-2">
+      <input
+        ref={fileInput}
+        type="file"
+        className="hidden"
+        onChange={handleFile}
+        disabled={disabled || sending}
+      />
+      <button
+        type="button"
+        className="btn btn-ghost btn-square btn-sm"
+        aria-label="Anexar"
+        onClick={() => fileInput.current?.click()}
+        disabled={disabled || sending}
+      >
         📎
       </button>
       <input
@@ -178,11 +213,28 @@ function Composer({
   );
 }
 
-function initials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((n) => n[0]?.toUpperCase() ?? "")
-    .join("");
+function inferType(
+  file: File,
+): "IMAGE" | "AUDIO" | "VIDEO" | "DOCUMENT" | "INSTANT_VIDEO" {
+  const m = file.type;
+  if (m.startsWith("image/")) return "IMAGE";
+  if (m.startsWith("audio/")) return "AUDIO";
+  if (m.startsWith("video/")) return "VIDEO";
+  return "DOCUMENT";
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const cls =
+    status === "WAITING"
+      ? "badge-warning"
+      : status === "IN_PROGRESS"
+        ? "badge-success"
+        : "badge-ghost";
+  const label =
+    status === "WAITING"
+      ? "Aguardando"
+      : status === "IN_PROGRESS"
+        ? "Em atendimento"
+        : "Finalizada";
+  return <span className={`badge badge-sm ${cls}`}>{label}</span>;
 }

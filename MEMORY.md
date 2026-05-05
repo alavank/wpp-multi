@@ -96,27 +96,32 @@ Se `notifyOnSave=true`, sistema envia mensagem de confirmação no chat ao salva
 
 ---
 
-## Estado atual da fundação
+## Estado atual
 
-> **Onde estamos:** estrutura inicial criada — monorepo, schema Prisma, bootstraps mínimos. Sem rotas, telas, ou integração Baileys ainda.
+> **Onde estamos:** projeto end-to-end **conectável**. Auth, rotas, Baileys, mídia, admin, worker, Docker Compose e CI prontos. Falta o cliente plugar `.env` real do Supabase e rodar a primeira migration.
 
-Entregue nesta primeira execução:
+Entregue:
 
-- [x] `MEMORY.md` (este arquivo) com escopo + stack + estado
-- [x] Monorepo pnpm: `apps/web`, `apps/api`, `packages/shared`
-- [x] Schema Prisma completo com todas as entidades do briefing
-- [x] Bootstraps mínimos compiláveis (Fastify hello + Vite shell PWA)
+- [x] Monorepo pnpm com `apps/web`, `apps/api`, `packages/shared`
+- [x] Schema Prisma + **migration SQL inicial** (`apps/api/prisma/migrations/20260504000000_init/migration.sql`)
+- [x] **RLS policies** Supabase (`apps/api/prisma/rls.sql`)
+- [x] Auth Fastify (Supabase JWT) + helpers de autorização
+- [x] Camada de domínio (transições de Conversation, prefixo `[Nome] disse:`)
+- [x] Rotas: conversations, messages, **media (upload/download)**, transfers, scheduled-returns, whatsapp, departments, users
+- [x] **Baileys SessionManager** por departamento + ingestão de texto **e mídia** (image/audio/video/instant_video/document/sticker)
+- [x] Worker de **scheduled-returns** (notificação automática quando vence)
+- [x] Frontend: login Supabase + react-router + RequireAuth, hooks `useConversations`/`useMessages`/`useDepartments` com **Realtime** Supabase
+- [x] UI: lista de filas (5 abas), busca, painel de chat com bolhas + mídia (preview imagem/vídeo/áudio/documento, **vídeo circular instantâneo**), assumir/encerrar, modal de Agendar Retorno, painéis de admin (departamentos e usuários), seletor de departamento, tematização dark/light persistida
+- [x] **Docker Compose** (postgres + api + web) para deploy on-premise
+- [x] **CI** GitHub Actions: install + prisma validate/generate + typecheck + build
 
-Próximos passos (fora do escopo desta etapa):
+Próximos passos (já fora do que está no repo):
 
-1. Configurar `.env` com `DATABASE_URL` do Supabase e rodar `pnpm --filter @wpp/api prisma migrate dev`.
-2. Implementar módulo Baileys (`apps/api/src/modules/whatsapp`): SessionManager por departamento, listeners de eventos (mensagens, conexão, QR).
-3. Rotas REST do Fastify para conversations / messages / transfers / scheduled-returns / departments / users.
-4. Policies RLS no Supabase + plugin de auth Fastify validando JWT do Supabase.
-5. Telas React seguindo mockups em `design/`: lista de filas (4 abas), painel de chat, painel de detalhes, modal de agendamento, gestão de usuários e departamentos.
-6. Workers: download/processamento de mídia, notificação de retorno agendado.
-7. Tematização dark/light via CSS variables Tailwind + toggle persistido.
-8. Empacotamento on-premise (Docker Compose).
+1. Plugar `.env` real do Supabase, rodar `pnpm db:migrate` e aplicar `apps/api/prisma/rls.sql` no SQL Editor.
+2. Criar trigger Postgres `auth.users → public.users` (ou seedar via API).
+3. Habilitar Realtime nas tabelas `conversations` e `messages` no painel Supabase.
+4. Iniciar uma sessão Baileys: `POST /whatsapp/sessions/:departmentId/start` e ler o QR via `GET /whatsapp/sessions/:departmentId/qr.png`.
+5. Refinar UI iterativamente conforme uso real.
 
 ---
 

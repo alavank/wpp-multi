@@ -2,10 +2,10 @@ import { useQueueStore, type QueueTabKey } from "../../stores/queueStore";
 
 const TABS: { key: QueueTabKey; label: string }[] = [
   { key: "WAITING", label: "Aguardando" },
-  { key: "IN_PROGRESS", label: "Em Atendimento" },
+  { key: "IN_PROGRESS", label: "Em atend." },
   { key: "FINISHED", label: "Finalizadas" },
-  { key: "TRANSFERS_RECEIVED", label: "Transf. Receb." },
-  { key: "TRANSFERS_SENT", label: "Transf. Env." },
+  { key: "TRANSFERS_RECEIVED", label: "Recebidas" },
+  { key: "TRANSFERS_SENT", label: "Enviadas" },
 ];
 
 export function QueueTabs() {
@@ -13,13 +13,16 @@ export function QueueTabs() {
   const setActiveTab = useQueueStore((s) => s.setActiveTab);
 
   return (
-    <div role="tablist" className="tabs tabs-lifted tabs-sm bg-base-200 px-2 pt-2">
+    <div role="tablist" className="flex flex-wrap gap-1 p-2 border-b border-base-300">
       {TABS.map((t) => (
         <button
           key={t.key}
           type="button"
           role="tab"
-          className={`tab ${activeTab === t.key ? "tab-active" : ""}`}
+          aria-selected={activeTab === t.key}
+          className={`btn btn-xs rounded-full ${
+            activeTab === t.key ? "btn-primary" : "btn-ghost"
+          }`}
           onClick={() => setActiveTab(t.key)}
         >
           {t.label}

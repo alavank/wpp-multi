@@ -6,12 +6,16 @@ import { prismaPlugin } from "./plugins/prisma.js";
 import { authPlugin } from "./plugins/auth.js";
 import { conversationsRoutes } from "./modules/conversations/conversations.routes.js";
 import { messagesRoutes } from "./modules/messages/messages.routes.js";
+import { mediaRoutes } from "./modules/messages/media.routes.js";
 import { transfersRoutes } from "./modules/transfers/transfers.routes.js";
 import { scheduledReturnsRoutes } from "./modules/scheduled-returns/scheduled-returns.routes.js";
 import { whatsappRoutes } from "./modules/whatsapp/whatsapp.routes.js";
+import { departmentsRoutes } from "./modules/departments/departments.routes.js";
+import { usersRoutes } from "./modules/users/users.routes.js";
 
 export async function buildServer() {
   const app = Fastify({
+    bodyLimit: 50 * 1024 * 1024, // 50 MB para uploads de mídia
     logger: {
       level: env.LOG_LEVEL,
       transport:
@@ -33,9 +37,12 @@ export async function buildServer() {
 
   await app.register(conversationsRoutes, { prefix: "/conversations" });
   await app.register(messagesRoutes, { prefix: "/messages" });
+  await app.register(mediaRoutes, { prefix: "/media" });
   await app.register(transfersRoutes, { prefix: "/transfers" });
   await app.register(scheduledReturnsRoutes, { prefix: "/scheduled-returns" });
   await app.register(whatsappRoutes, { prefix: "/whatsapp" });
+  await app.register(departmentsRoutes, { prefix: "/departments" });
+  await app.register(usersRoutes, { prefix: "/users" });
 
   return app;
 }

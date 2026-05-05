@@ -1,11 +1,14 @@
 import { buildServer } from "./server.js";
-
-const host = process.env.API_HOST ?? "0.0.0.0";
-const port = Number(process.env.API_PORT ?? 3333);
+import { env } from "./lib/env.js";
+import { startScheduledReturnsWorker } from "./workers/scheduled-returns.worker.js";
 
 async function main() {
   const app = await buildServer();
-  await app.listen({ host, port });
+  const stopWorker = startScheduledReturnsWorker(app.log);
+  app.addHook("onClose", async () => {
+    stopWorker();
+  });
+  await app.listen({ host: env.API_HOST, port: env.API_PORT });
 }
 
 main().catch((err) => {

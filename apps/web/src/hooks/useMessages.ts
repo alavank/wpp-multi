@@ -10,9 +10,17 @@ export type ApiMessage = {
   type: MessageType;
   body: string | null;
   agentDisplayPrefix: string | null;
+  mediaId: string | null;
   sentAt: string;
   sender: { id: string; fullName: string; photoUrl: string | null } | null;
-  media: unknown | null;
+  media: {
+    id: string;
+    mimeType: string;
+    sizeBytes: number;
+    durationMs: number | null;
+    width: number | null;
+    height: number | null;
+  } | null;
 };
 
 export function useMessages(conversationId: string | null) {
@@ -76,5 +84,44 @@ export function useMessages(conversationId: string | null) {
     return saved;
   }
 
-  return { items, loading, error, refetch, sendText };
+  async function sendMedia(
+    file: File,
+    type: "IMAGE" | "AUDIO" | "VIDEO" | "DOCUMENT" | "INSTANT_VIDEO",
+    caption?: string,
+  ) {
+    if (!conversationId) throw new Error("Sem conversa selecionada.");
+    const bucket = bucketForType(type);
+    const buffer = await file.arrayBuffer();
+
+    // Upload binário cru.
+    const { id: mediaId } = await apiFetch<{ id: string }>(
+      `/media?bucket=${bucket}&mime=${encodeURIComponent(file.type || "application/octet-stream")}`,
+      { method: "PUT", body: new Blob([buffer]), headers: {} },
+    );
+
+    const saved = await apiFetch<ApiMessage>("/messages/media", {
+      method: "POST",
+      body: JSON.stringify({ conversationId, type, mediaId, caption }),
+    });
+    setItems((prev) => [...prev, saved]);
+    return saved;
+  }
+
+  return { items, loading, error, refetch, sendText, sendMedia };
+}
+
+function bucketForType(type: string): string {
+  switch (type) {
+    case "IMAGE":
+      return "image";
+    case "AUDIO":
+      return "audio";
+    case "VIDEO":
+      return "video";
+    case "INSTANT_VIDEO":
+      return "instant_video";
+    case "DOCUMENT":
+    default:
+      return "document";
+  }
 }

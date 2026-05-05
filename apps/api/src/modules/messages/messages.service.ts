@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from "@prisma/client";
+import type { MessageType, Prisma, PrismaClient } from "@prisma/client";
 
 type Tx = Prisma.TransactionClient | PrismaClient;
 
@@ -57,6 +57,62 @@ export async function recordInboundText(
       whatsappMessageId: params.whatsappMessageId,
       groupParticipantPhone: params.groupParticipantPhone,
       sentAt: params.sentAt,
+    },
+  });
+}
+
+export async function recordInboundMedia(
+  tx: Tx,
+  params: {
+    conversationId: string;
+    whatsappMessageId: string;
+    type: MessageType;
+    mediaId: string;
+    caption?: string;
+    sentAt: Date;
+    groupParticipantPhone?: string;
+  },
+) {
+  return tx.message.create({
+    data: {
+      conversationId: params.conversationId,
+      direction: "INBOUND",
+      type: params.type,
+      body: params.caption,
+      mediaId: params.mediaId,
+      whatsappMessageId: params.whatsappMessageId,
+      groupParticipantPhone: params.groupParticipantPhone,
+      sentAt: params.sentAt,
+    },
+  });
+}
+
+export async function recordOutboundMedia(
+  tx: Tx,
+  params: {
+    conversationId: string;
+    senderUserId: string;
+    senderFullName: string;
+    type: MessageType;
+    mediaId: string;
+    caption?: string;
+    whatsappMessageId?: string;
+    sentAt?: Date;
+  },
+) {
+  const sentAt = params.sentAt ?? new Date();
+  const prefix = buildAgentPrefix(params.senderFullName);
+  return tx.message.create({
+    data: {
+      conversationId: params.conversationId,
+      direction: "OUTBOUND",
+      type: params.type,
+      body: params.caption ? `${prefix}${params.caption}` : null,
+      agentDisplayPrefix: prefix,
+      mediaId: params.mediaId,
+      senderUserId: params.senderUserId,
+      whatsappMessageId: params.whatsappMessageId,
+      sentAt,
     },
   });
 }

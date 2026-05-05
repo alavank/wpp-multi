@@ -136,6 +136,46 @@ class WhatsappManager {
     return { id: sent?.key?.id ?? undefined };
   }
 
+  async sendMedia(
+    departmentId: string,
+    toPhoneE164: string,
+    payload: {
+      type: "IMAGE" | "AUDIO" | "VIDEO" | "DOCUMENT" | "INSTANT_VIDEO";
+      buffer: Buffer;
+      mimeType: string;
+      caption?: string;
+    },
+  ): Promise<{ id?: string }> {
+    const entry = this.sessions.get(departmentId);
+    if (!entry) throw new Error(`Sessão Baileys não ativa para departamento ${departmentId}.`);
+    const jid = toJid(toPhoneE164);
+
+    let content: Parameters<WASocket["sendMessage"]>[1];
+    switch (payload.type) {
+      case "IMAGE":
+        content = { image: payload.buffer, caption: payload.caption };
+        break;
+      case "VIDEO":
+        content = { video: payload.buffer, caption: payload.caption };
+        break;
+      case "INSTANT_VIDEO":
+        content = { video: payload.buffer, caption: payload.caption, ptv: true };
+        break;
+      case "AUDIO":
+        content = { audio: payload.buffer, mimetype: payload.mimeType, ptt: true };
+        break;
+      case "DOCUMENT":
+        content = {
+          document: payload.buffer,
+          mimetype: payload.mimeType,
+          fileName: payload.caption ?? "arquivo",
+        };
+        break;
+    }
+    const sent = await entry.sock.sendMessage(jid, content);
+    return { id: sent?.key?.id ?? undefined };
+  }
+
   getQrCode(departmentId: string): string | undefined {
     return this.sessions.get(departmentId)?.lastQrCode;
   }
