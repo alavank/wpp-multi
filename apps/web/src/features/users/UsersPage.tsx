@@ -7,6 +7,7 @@ import { useSecretarias } from "../../hooks/useSecretarias";
 import type { Role } from "@wpp/shared";
 import { AdminPage } from "../../components/AdminPage";
 import { Avatar } from "../../components/Avatar";
+import { DepartmentMultiSelect } from "../../components/DepartmentMultiSelect";
 import {
   IconChevronDown,
   IconPlus,
@@ -307,8 +308,8 @@ function CreateUserModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const { items: departments } = useDepartments();
-  const { items: secretarias } = useSecretarias();
+  const role = useAuthStore((s) => s.user?.role);
+  const isDeptAdmin = role === "DEPT_ADMIN";
   const fileInput = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
@@ -317,19 +318,12 @@ function CreateUserModal({
     cpf: "",
     role: "AGENT" as Role,
     password: "",
-    secretariaId: "",
     departmentIds: [] as string[],
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Departamentos limitados à secretaria escolhida
-  const deptOptions = useMemo(() => {
-    if (!form.secretariaId) return departments;
-    return departments.filter((d) => d.secretariaId === form.secretariaId);
-  }, [departments, form.secretariaId]);
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0] ?? null;
@@ -347,8 +341,8 @@ function CreateUserModal({
     e.preventDefault();
     setError(null);
 
-    if (form.role === "AGENT" && !photoFile) {
-      setError("Atendentes exigem foto.");
+    if (form.departmentIds.length === 0) {
+      setError("Selecione ao menos um departamento.");
       return;
     }
 
@@ -363,7 +357,6 @@ function CreateUserModal({
           cpf: form.cpf.replace(/\D/g, ""),
           password: form.password,
           role: form.role,
-          secretariaId: form.secretariaId || undefined,
           departmentIds: form.departmentIds,
         }),
       });
@@ -473,8 +466,13 @@ function CreateUserModal({
         </Field>
 
         <Field label="Papel">
-          <div className="grid grid-cols-3 gap-1.5 bg-base-200 rounded-full p-1">
-            {(["AGENT", "DEPT_ADMIN", "SUPER_ADMIN"] as Role[]).map((r) => (
+          <div
+            className={`grid gap-1.5 bg-base-200 rounded-full p-1 ${isDeptAdmin ? "grid-cols-1" : "grid-cols-3"}`}
+          >
+            {(isDeptAdmin
+              ? (["AGENT"] as Role[])
+              : (["AGENT", "DEPT_ADMIN", "SUPER_ADMIN"] as Role[])
+            ).map((r) => (
               <button
                 key={r}
                 type="button"
@@ -489,54 +487,21 @@ function CreateUserModal({
               </button>
             ))}
           </div>
-        </Field>
-
-        <Field label="Secretaria">
-          <SelectPlain
-            value={form.secretariaId}
-            onChange={(v) => setForm({ ...form, secretariaId: v, departmentIds: [] })}
-            options={[
-              { value: "", label: "— sem secretaria —" },
-              ...secretarias.map((s) => ({ value: s.id, label: s.name })),
-            ]}
-          />
-        </Field>
-
-        <Field label="Departamentos">
-          {deptOptions.length === 0 ? (
-            <p className="text-xs text-base-content/55 bg-base-200 rounded-2xl p-3">
-              {form.secretariaId
-                ? "Esta secretaria ainda não tem departamentos."
-                : "Nenhum departamento cadastrado."}
-            </p>
-          ) : (
-            <div className="max-h-32 overflow-y-auto bg-base-200 rounded-2xl p-3 space-y-1.5 scrollbar-soft">
-              {deptOptions.map((d) => {
-                const checked = form.departmentIds.includes(d.id);
-                return (
-                  <label
-                    key={d.id}
-                    className="flex items-center gap-2 text-sm cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      className="checkbox checkbox-sm checkbox-primary"
-                      checked={checked}
-                      onChange={(e) =>
-                        setForm((f) => ({
-                          ...f,
-                          departmentIds: e.target.checked
-                            ? [...f.departmentIds, d.id]
-                            : f.departmentIds.filter((x) => x !== d.id),
-                        }))
-                      }
-                    />
-                    <span>{d.name}</span>
-                  </label>
-                );
-              })}
-            </div>
+          {isDeptAdmin && (
+            <span className="block text-[11px] text-base-content/50 mt-1">
+              Você só pode cadastrar Atendentes.
+            </span>
           )}
+        </Field>
+
+        <Field
+          label="Departamentos"
+          hint="Marque todos os locais onde este usuário atuará. Pode ser de várias secretarias ao mesmo tempo."
+        >
+          <DepartmentMultiSelect
+            value={form.departmentIds}
+            onChange={(ids) => setForm((f) => ({ ...f, departmentIds: ids }))}
+          />
         </Field>
 
         {error && (
@@ -555,35 +520,6 @@ function CreateUserModal({
         </div>
       </form>
     </ModalShell>
-  );
-}
-
-function SelectPlain({
-  value,
-  onChange,
-  options,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-}) {
-  return (
-    <div className="relative">
-      <select
-        className="input-flat appearance-none pr-10"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-base-content/50">
-        <IconChevronDown size={16} />
-      </span>
-    </div>
   );
 }
 

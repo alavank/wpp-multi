@@ -5,6 +5,7 @@ import { env } from "./lib/env.js";
 import { prismaPlugin } from "./plugins/prisma.js";
 import { authPlugin } from "./plugins/auth.js";
 import { auditPlugin } from "./plugins/audit.js";
+import { storagePlugin } from "./plugins/storage.js";
 import { conversationsRoutes } from "./modules/conversations/conversations.routes.js";
 import { messagesRoutes } from "./modules/messages/messages.routes.js";
 import { mediaRoutes } from "./modules/messages/media.routes.js";
@@ -38,6 +39,7 @@ export async function buildServer() {
   await app.register(prismaPlugin);
   await app.register(authPlugin);
   await app.register(auditPlugin);
+  await app.register(storagePlugin);
 
   app.get("/health", async () => ({ status: "ok", ts: new Date().toISOString() }));
 

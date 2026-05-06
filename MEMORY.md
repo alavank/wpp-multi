@@ -160,11 +160,12 @@ Página `/admin/monitor` renderiza uma **timeline horizontal animada** alimentad
 
 1. **Habilitar Realtime nas tabelas no Supabase**: painel → Database → Replication → publicação `supabase_realtime` → marcar `conversations`, `messages`, `audit_logs`. Sem isso, a UI não atualiza sozinha e o Monitor fica vazio.
 2. **Adicionar Volume no `@wpp/api`** no Railway: Settings → Volumes → mount path `/data`. Sem isso, sessões Baileys e mídia se perdem em cada redeploy.
-3. **Criar bucket público `avatars` no Supabase Storage**: painel → Storage → New bucket → name `avatars` → Public bucket ✓. Sem isso o upload de foto de perfil falha (PUT /users/:id/avatar). Política sugerida: leitura pública, escrita apenas via service_role (que é como a API usa).
-4. **Conectar primeiro número WhatsApp**: já dá pra fazer pela UI nova — `Departamentos` → botão "Conectar via QR" no card.
-5. **Trigger Postgres** opcional: ao criar usuário em `auth.users`, espelhar em `public.users`. Hoje fazemos via API (`POST /users`).
-6. **Tela de Grupos** + tela de Contatos (rotas existem; UI não).
-7. Iteração funcional conforme uso real.
+3. **Conectar primeiro número WhatsApp**: já dá pra fazer pela UI nova — `Departamentos` → botão "Conectar via QR" no card.
+4. **Trigger Postgres** opcional: ao criar usuário em `auth.users`, espelhar em `public.users`. Hoje fazemos via API (`POST /users`).
+5. **Tela de Grupos** + tela de Contatos (rotas existem; UI não).
+6. Iteração funcional conforme uso real.
+
+> Bucket `avatars` no Supabase Storage é criado automaticamente pelo `storagePlugin` no boot da API (idempotente). Não precisa mexer no painel.
 
 ---
 
