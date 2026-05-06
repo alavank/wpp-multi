@@ -2,32 +2,49 @@ import { supabase } from "./supabaseClient";
 
 const baseUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3333";
 
-async function authHeaders(): Promise<Headers> {
+async function getToken(forceRefresh = false): Promise<string | null> {
+  if (forceRefresh) {
+    const { data } = await supabase.auth.refreshSession();
+    return data.session?.access_token ?? null;
+  }
   const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
+  return data.session?.access_token ?? null;
+}
+
+async function authHeaders(forceRefresh = false): Promise<Headers> {
+  const token = await getToken(forceRefresh);
   const headers = new Headers();
   if (token) headers.set("Authorization", `Bearer ${token}`);
   return headers;
 }
 
-export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const headers = await authHeaders();
-  // Por padrão JSON. Quando body é Blob/ArrayBuffer/FormData, não força.
+function buildHeaders(base: Headers, init: RequestInit) {
   const isBinary =
     init.body instanceof Blob ||
     init.body instanceof ArrayBuffer ||
     init.body instanceof FormData;
-  if (!isBinary) headers.set("Content-Type", "application/json");
-
-  // mescla headers do caller, mas o Authorization vence
+  if (!isBinary && !base.has("Content-Type")) {
+    base.set("Content-Type", "application/json");
+  }
   if (init.headers) {
     new Headers(init.headers).forEach((v, k) => {
       if (k.toLowerCase() === "authorization") return;
-      headers.set(k, v);
+      base.set(k, v);
     });
   }
+  return base;
+}
 
-  const res = await fetch(`${baseUrl}${path}`, { ...init, headers });
+export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+  let headers = buildHeaders(await authHeaders(), init);
+  let res = await fetch(`${baseUrl}${path}`, { ...init, headers });
+
+  // Token pode estar expirado/ausente — tenta refresh uma vez antes de desistir.
+  if (res.status === 401) {
+    headers = buildHeaders(await authHeaders(true), init);
+    res = await fetch(`${baseUrl}${path}`, { ...init, headers });
+  }
+
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`API ${res.status}: ${text}`);

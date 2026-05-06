@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
-import { Link } from "react-router-dom";
 import { apiFetch } from "../../lib/apiClient";
+import { AdminPage } from "../../components/AdminPage";
 
 type ApiAudit = {
   id: string;
@@ -45,80 +45,91 @@ export function AuditPage() {
   }, [refetch]);
 
   return (
-    <div className="min-h-screen bg-base-100 text-base-content">
-      <header className="navbar bg-base-200 px-4">
-        <Link to="/" className="btn btn-ghost text-lg">← Filas</Link>
-        <div className="flex-1 ml-4 text-lg font-semibold">Auditoria</div>
-      </header>
+    <AdminPage
+      title="Auditoria"
+      subtitle="Histórico cronológico de ações no sistema."
+    >
+      <div className="surface-soft p-4 flex flex-wrap gap-2 items-center">
+        <input
+          type="text"
+          className="input-flat flex-1 min-w-[14rem]"
+          placeholder="Ação (ex.: conversation.assume)"
+          value={filters.action}
+          onChange={(e) => setFilters({ ...filters, action: e.target.value })}
+        />
+        <input
+          type="text"
+          className="input-flat flex-1 min-w-[14rem]"
+          placeholder="User ID"
+          value={filters.userId}
+          onChange={(e) => setFilters({ ...filters, userId: e.target.value })}
+        />
+        <button type="button" className="btn-flat-primary" onClick={() => refetch()}>
+          Filtrar
+        </button>
+      </div>
 
-      <main className="p-6 max-w-6xl mx-auto space-y-4">
-        <div className="flex flex-wrap gap-3">
-          <input
-            type="text"
-            className="input input-bordered input-sm"
-            placeholder="Ação (ex: conversation.assume)"
-            value={filters.action}
-            onChange={(e) => setFilters({ ...filters, action: e.target.value })}
-          />
-          <input
-            type="text"
-            className="input input-bordered input-sm"
-            placeholder="User ID"
-            value={filters.userId}
-            onChange={(e) => setFilters({ ...filters, userId: e.target.value })}
-          />
-          <button type="button" className="btn btn-sm" onClick={() => refetch()}>
-            Filtrar
-          </button>
+      {error && (
+        <div role="alert" className="text-sm text-error bg-error/10 rounded-2xl px-4 py-3">
+          {error}
         </div>
+      )}
 
-        {error && <div role="alert" className="alert alert-error text-sm">{error}</div>}
-        {loading ? (
-          <div className="text-center py-10"><span className="loading loading-spinner" /></div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="table table-sm">
-              <thead>
-                <tr>
-                  <th>Quando</th>
-                  <th>Quem</th>
-                  <th>Ação</th>
-                  <th>Entidade</th>
-                  <th>IP</th>
-                  <th>Dispositivo</th>
+      {loading ? (
+        <div className="grid place-items-center py-16">
+          <span className="loading loading-dots text-primary" />
+        </div>
+      ) : items.length === 0 ? (
+        <div className="surface-soft p-10 text-center text-sm text-base-content/55">
+          Nenhum log encontrado.
+        </div>
+      ) : (
+        <div className="surface-soft p-2 overflow-x-auto scrollbar-soft">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-[11px] uppercase tracking-wider text-base-content/55">
+                <th className="px-3 py-2 font-semibold">Quando</th>
+                <th className="px-3 py-2 font-semibold">Quem</th>
+                <th className="px-3 py-2 font-semibold">Ação</th>
+                <th className="px-3 py-2 font-semibold">Entidade</th>
+                <th className="px-3 py-2 font-semibold">IP</th>
+                <th className="px-3 py-2 font-semibold">Dispositivo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((a) => (
+                <tr key={a.id} className="border-t divider-hair">
+                  <td className="px-3 py-2 tabular-nums whitespace-nowrap">
+                    {new Date(a.createdAt).toLocaleString("pt-BR")}
+                  </td>
+                  <td className="px-3 py-2">
+                    {a.actorName ?? <span className="text-base-content/55">—</span>}
+                  </td>
+                  <td className="px-3 py-2">
+                    <code className="text-xs">{a.action}</code>
+                  </td>
+                  <td className="px-3 py-2 text-xs text-base-content/70">
+                    {a.entityType}
+                    {a.entityId ? ` · ${a.entityId.slice(0, 8)}…` : ""}
+                  </td>
+                  <td className="px-3 py-2 text-xs">{a.ipAddress ?? "—"}</td>
+                  <td className="px-3 py-2 text-xs">
+                    {a.device ?? "—"}
+                    {a.userAgent && (
+                      <div
+                        className="text-base-content/45 truncate max-w-[12rem]"
+                        title={a.userAgent}
+                      >
+                        {a.userAgent}
+                      </div>
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {items.map((a) => (
-                  <tr key={a.id}>
-                    <td className="tabular-nums whitespace-nowrap">
-                      {new Date(a.createdAt).toLocaleString("pt-BR")}
-                    </td>
-                    <td>{a.actorName ?? <span className="opacity-60">—</span>}</td>
-                    <td><code>{a.action}</code></td>
-                    <td className="text-xs opacity-70">
-                      {a.entityType}
-                      {a.entityId ? ` · ${a.entityId.slice(0, 8)}…` : ""}
-                    </td>
-                    <td className="text-xs">{a.ipAddress ?? "—"}</td>
-                    <td className="text-xs">
-                      {a.device ?? "—"}
-                      {a.userAgent && (
-                        <div className="opacity-50 truncate max-w-[12rem]" title={a.userAgent}>
-                          {a.userAgent}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {items.length === 0 && (
-                  <tr><td colSpan={6} className="text-center opacity-60 py-6">Nenhum log.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </main>
-    </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </AdminPage>
   );
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { apiFetch } from "../../lib/apiClient";
 import { useDepartments } from "../../hooks/useDepartments";
+import { AdminPage } from "../../components/AdminPage";
 
 type ApiUserMin = { id: string; fullName: string; email: string };
 type ApiPermission = {
@@ -68,91 +68,81 @@ export function PermissionsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-base-100 text-base-content">
-      <header className="navbar bg-base-200 px-4">
-        <Link to="/" className="btn btn-ghost text-lg">← Filas</Link>
-        <div className="flex-1 ml-4 text-lg font-semibold">Permissões</div>
-      </header>
+    <AdminPage
+      title="Permissões"
+      subtitle="Conceda ou revogue permissões granulares por usuário e departamento."
+    >
+      <div className="surface-soft p-5">
+        <label className="block">
+          <span className="block text-xs font-semibold text-base-content/70 mb-1.5">
+            Usuário
+          </span>
+          <select
+            className="input-flat"
+            value={selectedUser}
+            onChange={(e) => setSelectedUser(e.target.value)}
+          >
+            <option value="">— selecione —</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.fullName} ({u.email})
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
 
-      <main className="p-6 max-w-5xl mx-auto space-y-6">
-        <div className="flex flex-wrap gap-3 items-end">
-          <label className="form-control">
-            <span className="label-text">Usuário</span>
-            <select
-              className="select select-bordered"
-              value={selectedUser}
-              onChange={(e) => setSelectedUser(e.target.value)}
-            >
-              <option value="">— selecione —</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.fullName} ({u.email})
-                </option>
-              ))}
-            </select>
-          </label>
+      {error && (
+        <div role="alert" className="text-sm text-error bg-error/10 rounded-2xl px-4 py-3">
+          {error}
         </div>
+      )}
 
-        {error && <div role="alert" className="alert alert-error text-sm">{error}</div>}
+      {selectedUser && (
+        <>
+          <section className="surface-soft p-5 space-y-4">
+            <h2 className="font-bold">Conceder permissão</h2>
+            <GrantForm
+              catalog={catalog}
+              departments={depts.map((d) => ({ id: d.id, name: d.name }))}
+              onGrant={grant}
+            />
+          </section>
 
-        {selectedUser && (
-          <>
-            <section className="card bg-base-200">
-              <div className="card-body">
-                <h2 className="card-title text-base">Conceder permissão</h2>
-                <GrantForm
-                  catalog={catalog}
-                  departments={depts.map((d) => ({ id: d.id, name: d.name }))}
-                  onGrant={grant}
-                />
-              </div>
-            </section>
-
-            <section className="card bg-base-200">
-              <div className="card-body">
-                <h2 className="card-title text-base">Permissões atuais</h2>
-                {grants.length === 0 ? (
-                  <p className="opacity-60 text-sm">Nenhuma permissão concedida.</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="table table-sm">
-                      <thead>
-                        <tr>
-                          <th>Permissão</th>
-                          <th>Escopo</th>
-                          <th></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {grants.map((g) => (
-                          <tr key={g.id}>
-                            <td><code>{g.permission}</code></td>
-                            <td>
-                              {g.departmentId
-                                ? depts.find((d) => d.id === g.departmentId)?.name ?? g.departmentId
-                                : <span className="opacity-60">global</span>}
-                            </td>
-                            <td className="text-right">
-                              <button
-                                type="button"
-                                className="btn btn-ghost btn-xs text-error"
-                                onClick={() => revoke(g.id)}
-                              >
-                                Revogar
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </section>
-          </>
-        )}
-      </main>
-    </div>
+          <section className="surface-soft p-5 space-y-3">
+            <h2 className="font-bold">Permissões atuais</h2>
+            {grants.length === 0 ? (
+              <p className="text-sm text-base-content/55">Nenhuma permissão concedida.</p>
+            ) : (
+              <ul className="space-y-2">
+                {grants.map((g) => (
+                  <li
+                    key={g.id}
+                    className="flex items-center justify-between gap-3 bg-base-100 rounded-2xl px-4 py-2.5"
+                  >
+                    <div className="min-w-0">
+                      <code className="text-sm font-mono">{g.permission}</code>
+                      <div className="text-[11px] text-base-content/55">
+                        {g.departmentId
+                          ? `Apenas em ${depts.find((d) => d.id === g.departmentId)?.name ?? g.departmentId}`
+                          : "Escopo global"}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="text-xs font-semibold text-error hover:underline"
+                      onClick={() => revoke(g.id)}
+                    >
+                      Revogar
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </>
+      )}
+    </AdminPage>
   );
 }
 
@@ -183,10 +173,12 @@ function GrantForm({
 
   return (
     <form onSubmit={handleSubmit} className="grid md:grid-cols-3 gap-3 items-end">
-      <label className="form-control">
-        <span className="label-text">Permissão</span>
+      <label className="block">
+        <span className="block text-xs font-semibold text-base-content/70 mb-1.5">
+          Permissão
+        </span>
         <select
-          className="select select-bordered"
+          className="input-flat"
           value={permission}
           onChange={(e) => setPermission(e.target.value)}
           required
@@ -197,10 +189,12 @@ function GrantForm({
           ))}
         </select>
       </label>
-      <label className="form-control">
-        <span className="label-text">Escopo</span>
+      <label className="block">
+        <span className="block text-xs font-semibold text-base-content/70 mb-1.5">
+          Escopo
+        </span>
         <select
-          className="select select-bordered"
+          className="input-flat"
           value={scope}
           onChange={(e) => setScope(e.target.value)}
         >
@@ -210,7 +204,11 @@ function GrantForm({
           ))}
         </select>
       </label>
-      <button type="submit" className="btn btn-primary" disabled={submitting || !permission}>
+      <button
+        type="submit"
+        className="btn-flat-primary"
+        disabled={submitting || !permission}
+      >
         Conceder
       </button>
     </form>

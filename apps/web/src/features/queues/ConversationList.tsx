@@ -14,13 +14,8 @@ export function ConversationList() {
   const select = useSelectionStore((s) => s.selectConversation);
   const [search, setSearch] = useState("");
 
-  if (activeTab === "TRANSFERS_RECEIVED" || activeTab === "TRANSFERS_SENT") {
-    return (
-      <div className="flex-1 grid place-items-center text-sm text-base-content/55 px-4 text-center">
-        Visão de transferências será exibida aqui.
-      </div>
-    );
-  }
+  const isTransferTab =
+    activeTab === "TRANSFERS_RECEIVED" || activeTab === "TRANSFERS_SENT";
 
   const status =
     activeTab === "WAITING"
@@ -30,7 +25,7 @@ export function ConversationList() {
         : ("FINISHED" as const);
 
   const { items, loading, error } = useConversations({
-    departmentId,
+    departmentId: isTransferTab ? null : departmentId,
     status,
     assignedToMe: activeTab === "IN_PROGRESS",
   });
@@ -43,6 +38,14 @@ export function ConversationList() {
       return name.includes(q) || c.contact.phoneE164.includes(q);
     });
   }, [items, search]);
+
+  if (isTransferTab) {
+    return (
+      <div className="flex-1 grid place-items-center text-sm text-base-content/55 px-4 text-center">
+        Visão de transferências será exibida aqui.
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
