@@ -27,13 +27,21 @@ Sistema **on-premise** de **multiatendimento WhatsApp** para uso em vários depa
 
 ---
 
+## Hierarquia organizacional
+
+Prefeitura → **Secretaria** (`Secretaria`) → **Departamento** (`Department`) → **Usuários** (`User`).
+
+- Cada **Secretaria** agrupa N departamentos (ex.: Saúde, Educação, Obras).
+- Cada **Departamento** tem seu próprio número WhatsApp e fila independente.
+- Cada **Usuário** opcionalmente pertence a uma `secretariaId` (informativo) e tem N `DepartmentMember` (vínculos efetivos com setores).
+
 ## Hierarquia de papéis
 
 | Papel | Poderes |
 |---|---|
-| **Super Admin** | Cria departamentos, vincula números WhatsApp, gerencia usuários globais e permissões |
-| **Admin de Departamento** (Coordenador) | Dashboards de produtividade do setor, controle de filas, gestão de dados da equipe |
-| **Atendente** | Acessa filas do(s) setor(es) que pertence, atende, transfere, encerra, visualiza histórico. Cadastro exige Nome Completo + Foto |
+| **Super Admin** | Cria secretarias, departamentos, vincula números WhatsApp, gerencia usuários globais e permissões |
+| **Admin de Departamento** (Coordenador) | Dashboards de produtividade do setor, controle de filas, **cadastra Atendentes nos seus departamentos**, libera permissões dentro do escopo dele |
+| **Atendente** | Acessa filas do(s) setor(es) que pertence, atende, transfere, encerra, visualiza histórico. Cadastro exige Nome Completo, **CPF**, e-mail. Foto opcional, pode ser carregada depois pelo próprio usuário (ProfileModal na sidebar). |
 
 Um usuário pode pertencer a **múltiplos departamentos** (`DepartmentMember`). O **role** (Super/Dept admin/Agent) é o piso de capacidades — o **RBAC granular por usuário** vive em `UserPermission` (concede/revoga ações específicas, opcionalmente escopado a um departamento).
 
@@ -152,9 +160,9 @@ Página `/admin/monitor` renderiza uma **timeline horizontal animada** alimentad
 
 1. **Habilitar Realtime nas tabelas no Supabase**: painel → Database → Replication → publicação `supabase_realtime` → marcar `conversations`, `messages`, `audit_logs`. Sem isso, a UI não atualiza sozinha e o Monitor fica vazio.
 2. **Adicionar Volume no `@wpp/api`** no Railway: Settings → Volumes → mount path `/data`. Sem isso, sessões Baileys e mídia se perdem em cada redeploy.
-3. **Conectar primeiro número WhatsApp**: criar departamento na UI → `POST /whatsapp/sessions/:id/start` → ler QR em `/whatsapp/sessions/:id/qr.png` → escanear no app do celular.
-4. **Trigger Postgres** opcional: ao criar usuário em `auth.users`, espelhar em `public.users`. Hoje fazemos via API (`POST /users`).
-5. **Polimento de UI** seguindo `/design`.
+3. **Criar bucket público `avatars` no Supabase Storage**: painel → Storage → New bucket → name `avatars` → Public bucket ✓. Sem isso o upload de foto de perfil falha (PUT /users/:id/avatar). Política sugerida: leitura pública, escrita apenas via service_role (que é como a API usa).
+4. **Conectar primeiro número WhatsApp**: já dá pra fazer pela UI nova — `Departamentos` → botão "Conectar via QR" no card.
+5. **Trigger Postgres** opcional: ao criar usuário em `auth.users`, espelhar em `public.users`. Hoje fazemos via API (`POST /users`).
 6. **Tela de Grupos** + tela de Contatos (rotas existem; UI não).
 7. Iteração funcional conforme uso real.
 

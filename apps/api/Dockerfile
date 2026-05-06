@@ -28,4 +28,6 @@ WORKDIR /app
 COPY --from=build /repo /app
 WORKDIR /app/apps/api
 EXPOSE 3333
-CMD ["node", "dist/index.js"]
+# Aplica migrations pendentes antes de subir (idempotente). Falha em caso
+# de erro de conexão e o Railway tenta de novo no próximo restart.
+CMD ["sh", "-c", "npx --no-install prisma migrate deploy && node dist/index.js"]

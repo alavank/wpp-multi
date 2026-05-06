@@ -6,6 +6,7 @@ const createBody = z.object({
   name: z.string().min(1).max(120),
   description: z.string().max(500).optional(),
   whatsappNumber: z.string().regex(/^\+\d{8,15}$/),
+  secretariaId: z.string().uuid().nullable().optional(),
 });
 
 const updateBody = createBody.partial().extend({
@@ -23,6 +24,9 @@ export const departmentsRoutes: FastifyPluginAsync = async (app) => {
         ...(isAdmin ? {} : { id: { in: req.auth.departmentIds } }),
       },
       orderBy: { name: "asc" },
+      include: {
+        secretaria: { select: { id: true, name: true } },
+      },
     });
     return { items };
   });

@@ -1,9 +1,10 @@
 import { Link, useLocation } from "react-router-dom";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { ThemeToggle } from "./ThemeProvider";
 import { useAuthStore } from "../stores/authStore";
 import { supabase } from "../lib/supabaseClient";
 import { Avatar } from "./Avatar";
+import { ProfileModal } from "../features/auth/ProfileModal";
 import {
   IconActivity,
   IconBuilding,
@@ -37,6 +38,12 @@ const NAV: NavItem[] = [
     match: (p) => p.startsWith("/admin/permissions"),
   },
   {
+    to: "/admin/secretarias",
+    label: "Secretarias",
+    icon: <IconBuilding />,
+    match: (p) => p.startsWith("/admin/secretarias"),
+  },
+  {
     to: "/admin/departments",
     label: "Departamentos",
     icon: <IconBuilding />,
@@ -53,6 +60,7 @@ const NAV: NavItem[] = [
 export function Sidebar() {
   const user = useAuthStore((s) => s.user);
   const location = useLocation();
+  const [profileOpen, setProfileOpen] = useState(false);
 
   return (
     <aside className="w-60 shrink-0 flex flex-col gap-4 p-3">
@@ -106,7 +114,12 @@ export function Sidebar() {
 
       {/* User card */}
       {user && (
-        <div className="surface-soft p-3 flex items-center gap-3 mt-auto">
+        <button
+          type="button"
+          className="surface-soft p-3 flex items-center gap-3 mt-auto text-left hover:ring-2 hover:ring-primary/30 transition"
+          onClick={() => setProfileOpen(true)}
+          title="Editar meu perfil"
+        >
           <Avatar name={user.fullName} src={user.photoUrl ?? undefined} sizeClass="w-9" />
           <div className="min-w-0">
             <div className="text-[11px] uppercase tracking-wider text-base-content/50">
@@ -114,8 +127,10 @@ export function Sidebar() {
             </div>
             <div className="text-sm font-semibold truncate">{user.fullName}</div>
           </div>
-        </div>
+        </button>
       )}
+
+      {profileOpen && <ProfileModal onClose={() => setProfileOpen(false)} />}
     </aside>
   );
 }

@@ -15,6 +15,7 @@ import { departmentsRoutes } from "./modules/departments/departments.routes.js";
 import { usersRoutes } from "./modules/users/users.routes.js";
 import { auditRoutes } from "./modules/audit/audit.routes.js";
 import { permissionsRoutes } from "./modules/permissions/permissions.routes.js";
+import { secretariasRoutes } from "./modules/secretarias/secretarias.routes.js";
 
 export async function buildServer() {
   const app = Fastify({
@@ -46,6 +47,7 @@ export async function buildServer() {
   await app.register(transfersRoutes, { prefix: "/transfers" });
   await app.register(scheduledReturnsRoutes, { prefix: "/scheduled-returns" });
   await app.register(whatsappRoutes, { prefix: "/whatsapp" });
+  await app.register(secretariasRoutes, { prefix: "/secretarias" });
   await app.register(departmentsRoutes, { prefix: "/departments" });
   await app.register(usersRoutes, { prefix: "/users" });
   await app.register(auditRoutes, { prefix: "/audit-logs" });

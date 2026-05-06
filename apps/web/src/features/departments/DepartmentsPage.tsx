@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDepartments, type ApiDepartment } from "../../hooks/useDepartments";
+import { useSecretarias } from "../../hooks/useSecretarias";
 import { useAuthStore } from "../../stores/authStore";
 import { apiFetch } from "../../lib/apiClient";
 import { AdminPage } from "../../components/AdminPage";
-import { IconBuilding, IconPlus } from "../../components/Icon";
+import { IconBuilding, IconChevronDown, IconPlus } from "../../components/Icon";
 
 export function DepartmentsPage() {
   const { items, loading, error, refetch } = useDepartments();
@@ -11,6 +12,13 @@ export function DepartmentsPage() {
   const isSuper = role === "SUPER_ADMIN";
   const [creating, setCreating] = useState(false);
   const [qrFor, setQrFor] = useState<ApiDepartment | null>(null);
+  const [secFilter, setSecFilter] = useState<string>("");
+  const { items: secretarias } = useSecretarias();
+
+  const filtered = useMemo(() => {
+    if (!secFilter) return items;
+    return items.filter((d) => d.secretariaId === secFilter);
+  }, [items, secFilter]);
 
   return (
     <AdminPage
@@ -34,15 +42,40 @@ export function DepartmentsPage() {
         </div>
       )}
 
+      {secretarias.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold text-base-content/55 uppercase tracking-wider mr-2">
+            Filtrar por secretaria
+          </span>
+          <button
+            type="button"
+            className={`tab-pill ${!secFilter ? "is-active" : "bg-base-200/60"}`}
+            onClick={() => setSecFilter("")}
+          >
+            Todas
+          </button>
+          {secretarias.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              className={`tab-pill ${secFilter === s.id ? "is-active" : "bg-base-200/60"}`}
+              onClick={() => setSecFilter(s.id)}
+            >
+              {s.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <div className="grid place-items-center py-16">
           <span className="loading loading-dots text-primary" />
         </div>
-      ) : items.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <EmptyState />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {items.map((d) => (
+          {filtered.map((d) => (
             <DepartmentCard
               key={d.id}
               dept={d}
@@ -115,6 +148,11 @@ function DepartmentCard({
               {dept.isActive ? "ativo" : "inativo"}
             </span>
           </div>
+          {dept.secretaria && (
+            <div className="text-[11px] text-base-content/55 mt-0.5 truncate">
+              {dept.secretaria.name}
+            </div>
+          )}
           {dept.description && (
             <p className="text-xs text-base-content/55 mt-0.5 line-clamp-2">
               {dept.description}
@@ -327,9 +365,11 @@ function CreateDepartmentModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { items: secretarias } = useSecretarias();
   const [name, setName] = useState("");
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [description, setDescription] = useState("");
+  const [secretariaId, setSecretariaId] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -344,6 +384,7 @@ function CreateDepartmentModal({
           name,
           whatsappNumber,
           description: description || undefined,
+          secretariaId: secretariaId || undefined,
         }),
       });
       onCreated();
@@ -360,7 +401,7 @@ function CreateDepartmentModal({
         <div>
           <h3 className="text-lg font-bold">Novo departamento</h3>
           <p className="text-sm text-base-content/60">
-            Cadastre o setor e seu número de WhatsApp dedicado.
+            Cadastre o setor, seu número de WhatsApp e a secretaria a que pertence.
           </p>
         </div>
 
@@ -373,6 +414,26 @@ function CreateDepartmentModal({
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
+        </Field>
+
+        <Field label="Secretaria">
+          <div className="relative">
+            <select
+              className="input-flat appearance-none pr-10"
+              value={secretariaId}
+              onChange={(e) => setSecretariaId(e.target.value)}
+            >
+              <option value="">— sem secretaria —</option>
+              {secretarias.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-base-content/50">
+              <IconChevronDown size={16} />
+            </span>
+          </div>
         </Field>
 
         <Field label="Número WhatsApp" hint="Formato internacional. Ex.: +5511999999999">

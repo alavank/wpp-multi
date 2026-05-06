@@ -1,18 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../lib/apiClient";
 
-export type ApiDepartment = {
+export type ApiSecretaria = {
   id: string;
   name: string;
   description: string | null;
-  whatsappNumber: string;
   isActive: boolean;
-  secretariaId: string | null;
-  secretaria: { id: string; name: string } | null;
+  _count?: { departments: number; users: number };
 };
 
-export function useDepartments() {
-  const [items, setItems] = useState<ApiDepartment[]>([]);
+export function useSecretarias() {
+  const [items, setItems] = useState<ApiSecretaria[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,7 +18,7 @@ export function useDepartments() {
     setLoading(true);
     setError(null);
     try {
-      const data = await apiFetch<{ items: ApiDepartment[] }>("/departments");
+      const data = await apiFetch<{ items: ApiSecretaria[] }>("/secretarias");
       setItems(data.items);
     } catch (e) {
       setError((e as Error).message);

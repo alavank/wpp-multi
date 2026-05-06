@@ -93,7 +93,27 @@ enum Permission {
 }
 
 // ---------------------------------------------------------------------
-// Departamentos / Setores
+// Secretarias — agrupamento administrativo de departamentos
+// (ex.: Secretaria de Saúde > Departamento de Atendimento UBS)
+// ---------------------------------------------------------------------
+
+model Secretaria {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  departments Department[]
+  users       User[]
+
+  @@map("secretarias")
+}
+
+// ---------------------------------------------------------------------
+// Departamentos / Setores (cada um com seu número WhatsApp dedicado)
 // ---------------------------------------------------------------------
 
 model Department {
@@ -102,16 +122,19 @@ model Department {
   description     String?
   whatsappNumber  String   @unique
   isActive        Boolean  @default(true)
+  secretariaId    String?  @db.Uuid
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   deletedAt       DateTime?
 
+  secretaria      Secretaria?       @relation(fields: [secretariaId], references: [id])
   members         DepartmentMember[]
   conversations   Conversation[]
   contacts        Contact[]
   groups          Group[]
   whatsappSession WhatsappSession?
 
+  @@index([secretariaId])
   @@map("departments")
 }
 
@@ -121,18 +144,22 @@ model Department {
 // ---------------------------------------------------------------------
 
 model User {
-  id          String   @id @db.Uuid
-  email       String   @unique
-  fullName    String
-  photoUrl    String?
-  role        Role     @default(AGENT)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  deletedAt   DateTime?
+  id           String   @id @db.Uuid
+  email        String   @unique
+  fullName     String
+  photoUrl     String?
+  cpf          String?  @unique
+  bio          String?
+  role         Role     @default(AGENT)
+  isActive     Boolean  @default(true)
+  secretariaId String?  @db.Uuid
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
 
-  memberships         DepartmentMember[]
-  permissions         UserPermission[]
+  secretaria  Secretaria? @relation(fields: [secretariaId], references: [id])
+  memberships DepartmentMember[]
+  permissions UserPermission[]
   assignedConversations Conversation[]   @relation("AssignedAgent")
   finishedConversations Conversation[]   @relation("FinishedBy")
   sentMessages        Message[]          @relation("MessageSender")
@@ -143,6 +170,7 @@ model User {
   auditLogs           AuditLog[]
 
   @@index([role])
+  @@index([secretariaId])
   @@map("users")
 }
 
