@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSelectionStore } from "../../stores/selectionStore";
 import { useAuthStore } from "../../stores/authStore";
 import { useMessages, type ApiMessage } from "../../hooks/useMessages";
@@ -8,6 +8,15 @@ import { useConversations } from "../../hooks/useConversations";
 import { MediaBubble } from "./MediaBubble";
 import { Avatar } from "../../components/Avatar";
 import { DepartmentTag } from "../../components/DepartmentTag";
+import {
+  IconMic,
+  IconMore,
+  IconPaperclip,
+  IconPlus,
+  IconSearch,
+  IconSend,
+  IconSmile,
+} from "../../components/Icon";
 
 type Props = { className?: string };
 
@@ -24,8 +33,15 @@ export function ChatPanel({ className }: Props) {
   if (!conversation) {
     return (
       <section className={`flex flex-col bg-base-100 ${className ?? ""}`}>
-        <div className="flex-1 flex items-center justify-center text-sm opacity-60">
-          Nenhuma conversa selecionada.
+        <div className="flex-1 grid place-items-center px-6 text-center">
+          <div className="space-y-3 max-w-xs">
+            <div className="mx-auto w-14 h-14 rounded-2xl bg-base-200 grid place-items-center text-primary">
+              <IconSearch size={22} />
+            </div>
+            <p className="text-sm text-base-content/60">
+              Selecione uma conversa para começar a interagir.
+            </p>
+          </div>
         </div>
       </section>
     );
@@ -49,16 +65,20 @@ export function ChatPanel({ className }: Props) {
 
   return (
     <section className={`flex flex-col bg-base-100 ${className ?? ""}`}>
-      <header className="border-b border-base-300 px-4 py-3 flex items-center gap-3">
-        <Avatar name={contactName} src={conversation.contact.profilePicUrl ?? undefined} />
+      <header className="px-5 py-4 flex items-center gap-3 border-b divider-hair">
+        <Avatar
+          name={contactName}
+          src={conversation.contact.profilePicUrl ?? undefined}
+          sizeClass="w-11"
+        />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-medium truncate">{contactName}</span>
+            <span className="font-semibold truncate">{contactName}</span>
             <DepartmentTag departmentId={conversation.departmentId} />
           </div>
-          <div className="text-xs opacity-60 flex items-center gap-2">
+          <div className="text-xs text-base-content/55 flex items-center gap-2 mt-0.5">
             <StatusBadge status={conversation.status} />
-            <span>·</span>
+            <span className="opacity-50">·</span>
             <span>{conversation.contact.phoneE164}</span>
           </div>
         </div>
@@ -69,15 +89,22 @@ export function ChatPanel({ className }: Props) {
         />
 
         {conversation.status === "WAITING" && (
-          <button type="button" className="btn btn-sm btn-primary" onClick={handleAssume}>
+          <button type="button" className="btn-flat-primary" onClick={handleAssume}>
             Assumir
           </button>
         )}
         {conversation.status === "IN_PROGRESS" && isMine && (
-          <button type="button" className="btn btn-sm" onClick={handleFinish}>
+          <button type="button" className="btn-flat-neutral" onClick={handleFinish}>
             Encerrar
           </button>
         )}
+
+        <button type="button" className="btn-icon" aria-label="Buscar">
+          <IconSearch />
+        </button>
+        <button type="button" className="btn-icon" aria-label="Mais ações">
+          <IconMore />
+        </button>
       </header>
 
       <MessageList items={messages} currentUserId={userId} />
@@ -94,49 +121,114 @@ function MessageList({
   items: ApiMessage[];
   currentUserId?: string;
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [items.length]);
+
   if (items.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center text-sm opacity-60">
+      <div className="flex-1 grid place-items-center text-sm text-base-content/55">
         Nenhuma mensagem ainda.
       </div>
     );
   }
+
+  let lastDay = "";
+
   return (
-    <div className="flex-1 overflow-y-auto p-4 space-y-2">
+    <div
+      ref={scrollRef}
+      className="flex-1 overflow-y-auto scrollbar-soft px-5 py-4 space-y-1.5"
+    >
       {items.map((m) => {
-        if (m.type === "SYSTEM") {
-          return (
-            <div key={m.id} className="text-center text-xs opacity-60">
-              {m.body}
+        const day = new Date(m.sentAt).toDateString();
+        const showDayDivider = day !== lastDay;
+        lastDay = day;
+
+        const node =
+          m.type === "SYSTEM" ? (
+            <div key={m.id} className="my-3 flex justify-center">
+              <span className="text-[11px] uppercase tracking-wider text-base-content/45 bg-base-200 rounded-full px-3 py-1">
+                {m.body}
+              </span>
             </div>
+          ) : (
+            <Bubble key={m.id} m={m} mine={m.direction === "OUTBOUND" && m.sender?.id === currentUserId} />
           );
-        }
-        const mine = m.direction === "OUTBOUND" && m.sender?.id === currentUserId;
+
         return (
-          <div
-            key={m.id}
-            className={`chat ${m.direction === "OUTBOUND" ? "chat-end" : "chat-start"}`}
-          >
-            <div
-              className={`chat-bubble ${
-                mine
-                  ? "chat-bubble-primary"
-                  : m.direction === "OUTBOUND"
-                    ? ""
-                    : "chat-bubble-neutral"
-              }`}
-            >
-              {m.mediaId ? <MediaBubble message={m} /> : m.body}
-            </div>
-            <div className="chat-footer text-xs opacity-50">
-              {new Date(m.sentAt).toLocaleTimeString("pt-BR", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </div>
+          <div key={`g-${m.id}`} className="animate-fade-in-up">
+            {showDayDivider && <DayDivider date={m.sentAt} />}
+            {node}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function DayDivider({ date }: { date: string }) {
+  const d = new Date(date);
+  const today = new Date();
+  const yest = new Date();
+  yest.setDate(today.getDate() - 1);
+  const same = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+  const label = same(d, today)
+    ? "Hoje"
+    : same(d, yest)
+      ? "Ontem"
+      : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+  const time = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return (
+    <div className="flex justify-center my-3">
+      <span className="text-[11px] text-base-content/50">
+        {label} <span className="opacity-60">{time}</span>
+      </span>
+    </div>
+  );
+}
+
+function Bubble({ m, mine }: { m: ApiMessage; mine: boolean }) {
+  const outbound = m.direction === "OUTBOUND";
+  const time = new Date(m.sentAt).toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return (
+    <div className={`flex items-end gap-2 ${outbound ? "justify-end" : "justify-start"}`}>
+      {!outbound && (
+        <Avatar
+          name={m.sender?.fullName ?? "?"}
+          src={m.sender?.photoUrl ?? undefined}
+          sizeClass="w-7"
+        />
+      )}
+      <div className="flex flex-col items-stretch gap-1 max-w-[78%]">
+        <div className={`bubble ${mine || outbound ? "bubble-out" : "bubble-in"}`}>
+          {m.mediaId ? <MediaBubble message={m} /> : m.body}
+        </div>
+        <span
+          className={`text-[10px] text-base-content/45 ${
+            outbound ? "self-end" : "self-start"
+          }`}
+        >
+          {time}
+        </span>
+      </div>
+      {outbound && (
+        <Avatar
+          name={m.sender?.fullName ?? "?"}
+          src={m.sender?.photoUrl ?? undefined}
+          sizeClass="w-7"
+        />
+      )}
     </div>
   );
 }
@@ -186,35 +278,70 @@ function Composer({
     }
   }
 
+  const idle = !value.trim();
+
   return (
-    <form onSubmit={handleSubmit} className="border-t border-base-300 p-3 flex gap-2">
-      <input
-        ref={fileInput}
-        type="file"
-        className="hidden"
-        onChange={handleFile}
-        disabled={disabled || sending}
-      />
-      <button
-        type="button"
-        className="btn btn-ghost btn-square btn-sm"
-        aria-label="Anexar"
-        onClick={() => fileInput.current?.click()}
-        disabled={disabled || sending}
-      >
-        📎
-      </button>
-      <input
-        type="text"
-        className="input input-bordered flex-1"
-        placeholder={disabled ? "Assuma a conversa para enviar mensagens" : "Digite uma mensagem..."}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        disabled={disabled || sending}
-      />
-      <button type="submit" className="btn btn-primary" disabled={disabled || sending}>
-        Enviar
-      </button>
+    <form onSubmit={handleSubmit} className="px-4 py-3 border-t divider-hair">
+      <div className="flex items-center gap-2 bg-base-200 rounded-full pl-5 pr-2 py-1.5">
+        <input
+          type="text"
+          className="flex-1 bg-transparent border-0 outline-none text-sm placeholder:text-base-content/40 py-1.5"
+          placeholder={
+            disabled ? "Assuma a conversa para enviar mensagens" : "Digite uma mensagem…"
+          }
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          disabled={disabled || sending}
+        />
+        <input
+          ref={fileInput}
+          type="file"
+          className="hidden"
+          onChange={handleFile}
+          disabled={disabled || sending}
+        />
+        <button
+          type="button"
+          className="btn-icon"
+          aria-label="Áudio"
+          disabled={disabled || sending}
+        >
+          <IconMic size={16} />
+        </button>
+        <button
+          type="button"
+          className="btn-icon"
+          aria-label="Emoji"
+          disabled={disabled || sending}
+        >
+          <IconSmile size={16} />
+        </button>
+        <button
+          type="button"
+          className="btn-icon"
+          aria-label="Anexar"
+          onClick={() => fileInput.current?.click()}
+          disabled={disabled || sending}
+        >
+          <IconPaperclip size={16} />
+        </button>
+        <button
+          type="button"
+          className="btn-icon"
+          aria-label="Mais"
+          disabled={disabled || sending}
+        >
+          <IconPlus size={16} />
+        </button>
+        <button
+          type="submit"
+          className="grid place-items-center w-9 h-9 rounded-full bg-primary text-primary-content shadow-glow disabled:opacity-50 disabled:shadow-none active:scale-95 transition"
+          disabled={disabled || sending || idle}
+          aria-label="Enviar"
+        >
+          <IconSend size={16} />
+        </button>
+      </div>
     </form>
   );
 }
@@ -230,17 +357,16 @@ function inferType(
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const cls =
-    status === "WAITING"
-      ? "badge-warning"
-      : status === "IN_PROGRESS"
-        ? "badge-success"
-        : "badge-ghost";
-  const label =
-    status === "WAITING"
-      ? "Aguardando"
-      : status === "IN_PROGRESS"
-        ? "Em atendimento"
-        : "Finalizada";
-  return <span className={`badge badge-sm ${cls}`}>{label}</span>;
+  const map: Record<string, { dot: string; text: string; label: string }> = {
+    WAITING: { dot: "bg-amber-400", text: "text-amber-600", label: "Aguardando" },
+    IN_PROGRESS: { dot: "bg-emerald-400", text: "text-emerald-600", label: "Em atendimento" },
+    FINISHED: { dot: "bg-base-content/30", text: "text-base-content/55", label: "Finalizada" },
+  };
+  const meta = map[status] ?? map.FINISHED!;
+  return (
+    <span className={`inline-flex items-center gap-1.5 ${meta.text}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
+      {meta.label}
+    </span>
+  );
 }

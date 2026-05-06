@@ -22,50 +22,73 @@ export function LoginPage() {
       setError(error.message);
       return;
     }
-    // Registro de auditoria do login (best-effort).
     apiFetch("/users/login-event", { method: "POST" }).catch(() => undefined);
     navigate(from, { replace: true });
   }
 
   return (
-    <div className="min-h-screen bg-base-200 flex items-center justify-center p-4">
-      <div className="card bg-base-100 shadow-xl w-full max-w-sm">
-        <form className="card-body" onSubmit={onSubmit}>
-          <h1 className="card-title">wpp-multi</h1>
-          <p className="text-sm opacity-70 mb-2">Acesse com seu e-mail corporativo.</p>
+    <div className="min-h-screen grid place-items-center p-6">
+      <div className="surface-card w-full max-w-md p-8 sm:p-10 animate-scale-in">
+        <div className="flex items-center gap-2 mb-8">
+          <span className="grid place-items-center w-10 h-10 rounded-2xl bg-primary text-primary-content font-bold">
+            W
+          </span>
+          <span className="font-extrabold text-xl tracking-tight">
+            wpp<span className="text-primary">·</span>multi
+          </span>
+        </div>
 
-          <label className="form-control">
-            <span className="label-text mb-1">E-mail</span>
+        <h1 className="text-2xl font-bold tracking-tight">Bem-vindo de volta</h1>
+        <p className="text-sm text-base-content/60 mt-1">
+          Acesse com seu e-mail corporativo para continuar.
+        </p>
+
+        <form className="mt-8 space-y-4" onSubmit={onSubmit}>
+          <div>
+            <label className="block text-xs font-semibold text-base-content/70 mb-1.5">
+              E-mail
+            </label>
             <input
               type="email"
-              className="input input-bordered w-full"
+              className="input-flat"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
+              placeholder="voce@empresa.com"
             />
-          </label>
+          </div>
 
-          <label className="form-control mt-2">
-            <span className="label-text mb-1">Senha</span>
+          <div>
+            <label className="block text-xs font-semibold text-base-content/70 mb-1.5">
+              Senha
+            </label>
             <input
               type="password"
-              className="input input-bordered w-full"
+              className="input-flat"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
+              placeholder="••••••••"
             />
-          </label>
+          </div>
 
           {error && (
-            <div role="alert" className="alert alert-error text-sm mt-2">
+            <div
+              role="alert"
+              className="text-sm text-error bg-error/10 rounded-2xl px-4 py-3"
+            >
               {error}
             </div>
           )}
 
-          <button type="submit" className="btn btn-primary mt-4" disabled={loading}>
-            {loading ? "Entrando..." : "Entrar"}
+          <button
+            type="submit"
+            className="btn-flat-primary w-full mt-2 py-3"
+            disabled={loading}
+          >
+            {loading ? "Entrando…" : "Entrar"}
           </button>
         </form>
       </div>
