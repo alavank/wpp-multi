@@ -1,37 +1,50 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDepartments, type ApiDepartment } from "../../hooks/useDepartments";
-import { useSecretarias } from "../../hooks/useSecretarias";
 import { useAuthStore } from "../../stores/authStore";
 import { apiFetch } from "../../lib/apiClient";
+import { buildTree, type OrgNode } from "../../lib/orgTree";
 import { AdminPage } from "../../components/AdminPage";
-import { IconBuilding, IconChevronDown, IconPlus } from "../../components/Icon";
+import {
+  IconBuilding,
+  IconChevronDown,
+  IconPlus,
+} from "../../components/Icon";
+
+const KIND_PRESETS = [
+  "ORGANIZACAO",
+  "SECRETARIA",
+  "COORDENACAO",
+  "DEPARTAMENTO",
+  "SETOR",
+  "EQUIPE",
+];
+const DEFAULT_KIND = "DEPARTAMENTO";
 
 export function DepartmentsPage() {
   const { items, loading, error, refetch } = useDepartments();
   const role = useAuthStore((s) => s.user?.role);
   const isSuper = role === "SUPER_ADMIN";
-  const [creating, setCreating] = useState(false);
-  const [qrFor, setQrFor] = useState<ApiDepartment | null>(null);
-  const [secFilter, setSecFilter] = useState<string>("");
-  const { items: secretarias } = useSecretarias();
 
-  const filtered = useMemo(() => {
-    if (!secFilter) return items;
-    return items.filter((d) => d.secretariaId === secFilter);
-  }, [items, secFilter]);
+  const tree = useMemo(() => buildTree(items), [items]);
+
+  const [createUnder, setCreateUnder] = useState<ApiDepartment | null | "root">(
+    null,
+  );
+  const [editing, setEditing] = useState<ApiDepartment | null>(null);
+  const [qrFor, setQrFor] = useState<ApiDepartment | null>(null);
 
   return (
     <AdminPage
-      title="Departamentos"
-      subtitle="Cada departamento tem seu próprio número de WhatsApp."
+      title="Estrutura organizacional"
+      subtitle="Monte o organograma do jeito que a organização funciona: organização, secretaria, departamento, setor ou qualquer outro nível."
       actions={
         isSuper && (
           <button
             type="button"
             className="btn-flat-primary"
-            onClick={() => setCreating(true)}
+            onClick={() => setCreateUnder("root")}
           >
-            <IconPlus size={16} /> Novo departamento
+            <IconPlus size={16} /> Nova raiz
           </button>
         )
       }
@@ -42,138 +55,442 @@ export function DepartmentsPage() {
         </div>
       )}
 
-      {secretarias.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold text-base-content/55 uppercase tracking-wider mr-2">
-            Filtrar por secretaria
-          </span>
-          <button
-            type="button"
-            className={`tab-pill ${!secFilter ? "is-active" : "bg-base-200/60"}`}
-            onClick={() => setSecFilter("")}
-          >
-            Todas
-          </button>
-          {secretarias.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              className={`tab-pill ${secFilter === s.id ? "is-active" : "bg-base-200/60"}`}
-              onClick={() => setSecFilter(s.id)}
-            >
-              {s.name}
-            </button>
-          ))}
-        </div>
-      )}
-
       {loading ? (
         <div className="grid place-items-center py-16">
           <span className="loading loading-dots text-primary" />
         </div>
-      ) : filtered.length === 0 ? (
-        <EmptyState />
+      ) : tree.length === 0 ? (
+        <EmptyState onCreate={() => setCreateUnder("root")} canCreate={isSuper} />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((d) => (
-            <DepartmentCard
-              key={d.id}
-              dept={d}
-              canManage={isSuper || true /* dept admin do dept */}
-              onConnect={() => setQrFor(d)}
+        <div className="space-y-2">
+          {tree.map((node) => (
+            <TreeNode
+              key={node.id}
+              node={node}
+              canManage={isSuper}
+              onAddBelow={(parent) => setCreateUnder(parent)}
+              onEdit={(d) => setEditing(d)}
+              onConnect={(d) => setQrFor(d)}
+              onChange={refetch}
             />
           ))}
         </div>
       )}
 
-      {creating && (
-        <CreateDepartmentModal
-          onClose={() => setCreating(false)}
+      {createUnder !== null && (
+        <CreateModal
+          parent={createUnder === "root" ? null : createUnder}
+          onClose={() => setCreateUnder(null)}
           onCreated={() => {
-            setCreating(false);
+            setCreateUnder(null);
             void refetch();
           }}
         />
       )}
 
-      {qrFor && (
-        <ConnectWhatsappModal
-          dept={qrFor}
-          onClose={() => setQrFor(null)}
+      {editing && (
+        <EditModal
+          dept={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            void refetch();
+          }}
         />
       )}
+
+      {qrFor && <ConnectWhatsappModal dept={qrFor} onClose={() => setQrFor(null)} />}
     </AdminPage>
   );
 }
 
-function EmptyState() {
+function EmptyState({
+  onCreate,
+  canCreate,
+}: {
+  onCreate: () => void;
+  canCreate: boolean;
+}) {
   return (
     <div className="surface-soft p-10 text-center">
       <div className="mx-auto w-14 h-14 rounded-2xl bg-base-100 grid place-items-center text-primary mb-4">
         <IconBuilding size={22} />
       </div>
-      <h3 className="font-semibold">Nenhum departamento cadastrado</h3>
-      <p className="text-sm text-base-content/55 mt-1">
-        Crie um departamento para começar a vincular um número WhatsApp.
+      <h3 className="font-semibold">Nada cadastrado ainda</h3>
+      <p className="text-sm text-base-content/55 mt-1 mb-4">
+        Comece criando a organização-raiz (ex.: Prefeitura Municipal de…).
       </p>
+      {canCreate && (
+        <button type="button" className="btn-flat-primary" onClick={onCreate}>
+          <IconPlus size={16} /> Criar raiz
+        </button>
+      )}
     </div>
   );
 }
 
-function DepartmentCard({
-  dept,
+function TreeNode({
+  node,
   canManage,
+  onAddBelow,
+  onEdit,
   onConnect,
+  onChange,
 }: {
-  dept: ApiDepartment;
+  node: OrgNode;
   canManage: boolean;
-  onConnect: () => void;
+  onAddBelow: (parent: ApiDepartment) => void;
+  onEdit: (d: ApiDepartment) => void;
+  onConnect: (d: ApiDepartment) => void;
+  onChange: () => void;
 }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const hasChildren = node.children.length > 0;
+
+  async function handleDelete() {
+    if (!confirm(`Excluir "${node.name}"? Os filhos também serão removidos.`)) return;
+    await apiFetch(`/departments/${node.id}`, { method: "DELETE" });
+    onChange();
+  }
+
   return (
-    <article className="surface-soft p-5 flex flex-col gap-4">
-      <header className="flex items-start gap-3">
-        <div className="w-11 h-11 rounded-xl bg-primary/12 text-primary grid place-items-center shrink-0">
-          <IconBuilding size={20} />
+    <div className="space-y-2">
+      <div
+        className="surface-soft px-4 py-3 flex items-center gap-3"
+        style={{ marginLeft: node.depth * 24 }}
+      >
+        <button
+          type="button"
+          className="btn-icon !w-7 !h-7"
+          onClick={() => setCollapsed((c) => !c)}
+          disabled={!hasChildren}
+          aria-label={collapsed ? "Expandir" : "Recolher"}
+        >
+          {hasChildren ? (
+            <IconChevronDown
+              size={14}
+              style={{
+                transform: collapsed ? "rotate(-90deg)" : undefined,
+                transition: "transform 0.18s",
+              }}
+            />
+          ) : (
+            <span className="w-1 h-1 rounded-full bg-base-content/30" />
+          )}
+        </button>
+
+        <div className="w-9 h-9 rounded-xl bg-primary/12 text-primary grid place-items-center shrink-0">
+          <IconBuilding size={16} />
         </div>
+
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h3 className="font-semibold truncate">{dept.name}</h3>
-            <span
-              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                dept.isActive
-                  ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
-                  : "bg-base-300 text-base-content/55"
-              }`}
-            >
-              {dept.isActive ? "ativo" : "inativo"}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-base-100 text-base-content/70">
+              {node.kind}
             </span>
+            <span className="font-semibold truncate">{node.name}</span>
+            {node.whatsappNumber && (
+              <span className="font-mono text-[11px] text-base-content/55">
+                {node.whatsappNumber}
+              </span>
+            )}
+            {hasChildren && (
+              <span className="text-[10px] text-base-content/55">
+                {node.children.length} subestrutura
+                {node.children.length === 1 ? "" : "s"}
+              </span>
+            )}
           </div>
-          {dept.secretaria && (
-            <div className="text-[11px] text-base-content/55 mt-0.5 truncate">
-              {dept.secretaria.name}
+          {node.description && (
+            <div className="text-xs text-base-content/55 mt-0.5 truncate">
+              {node.description}
             </div>
           )}
-          {dept.description && (
-            <p className="text-xs text-base-content/55 mt-0.5 line-clamp-2">
-              {dept.description}
+        </div>
+
+        {node.whatsappNumber && canManage && (
+          <button
+            type="button"
+            className="btn-flat-neutral text-xs"
+            onClick={() => onConnect(node)}
+          >
+            Conectar QR
+          </button>
+        )}
+        {canManage && (
+          <>
+            <button
+              type="button"
+              className="text-xs font-semibold text-primary hover:underline"
+              onClick={() => onAddBelow(node)}
+            >
+              + Adicionar abaixo
+            </button>
+            <button
+              type="button"
+              className="text-xs font-semibold text-base-content/70 hover:underline"
+              onClick={() => onEdit(node)}
+            >
+              Editar
+            </button>
+            <button
+              type="button"
+              className="text-xs font-semibold text-error hover:underline"
+              onClick={handleDelete}
+            >
+              Excluir
+            </button>
+          </>
+        )}
+      </div>
+
+      {!collapsed &&
+        node.children.map((c) => (
+          <TreeNode
+            key={c.id}
+            node={c}
+            canManage={canManage}
+            onAddBelow={onAddBelow}
+            onEdit={onEdit}
+            onConnect={onConnect}
+            onChange={onChange}
+          />
+        ))}
+    </div>
+  );
+}
+
+function CreateModal({
+  parent,
+  onClose,
+  onCreated,
+}: {
+  parent: ApiDepartment | null;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [kind, setKind] = useState(parent ? DEFAULT_KIND : "ORGANIZACAO");
+  const [whatsappNumber, setWhatsappNumber] = useState("");
+  const [description, setDescription] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    try {
+      await apiFetch("/departments", {
+        method: "POST",
+        body: JSON.stringify({
+          name,
+          kind,
+          parentId: parent?.id ?? null,
+          description: description || undefined,
+          whatsappNumber: whatsappNumber || null,
+        }),
+      });
+      onCreated();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Modal onClose={onClose}>
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <div>
+          <h3 className="text-lg font-bold">
+            {parent ? "Adicionar abaixo de" : "Nova raiz"}
+          </h3>
+          {parent ? (
+            <p className="text-sm text-base-content/60">
+              Pai: <strong>{parent.name}</strong> ({parent.kind})
+            </p>
+          ) : (
+            <p className="text-sm text-base-content/60">
+              Topo do organograma. Ex.: <em>Prefeitura Municipal de…</em>
             </p>
           )}
         </div>
-      </header>
 
-      <div className="bg-base-100 rounded-xl px-3 py-2 flex items-center justify-between gap-2">
-        <span className="text-[11px] uppercase tracking-wider text-base-content/55 font-semibold">
-          Número
-        </span>
-        <span className="font-mono text-sm">{dept.whatsappNumber}</span>
-      </div>
-
-      {canManage && (
-        <div className="flex gap-2">
-          <WhatsappStatusButton dept={dept} onConnect={onConnect} />
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Nomenclatura">
+            <KindSelect value={kind} onChange={setKind} />
+          </Field>
+          <Field label="Nome">
+            <input
+              className="input-flat"
+              required
+              placeholder="Ex.: Secretaria de Saúde"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </Field>
         </div>
-      )}
-    </article>
+
+        <Field
+          label="Número WhatsApp (opcional)"
+          hint="Preencha apenas se este nó vai ter sua própria fila. Formato: +5511999999999"
+        >
+          <input
+            className="input-flat"
+            placeholder="+55…"
+            pattern="\+\d{8,15}"
+            value={whatsappNumber}
+            onChange={(e) => setWhatsappNumber(e.target.value)}
+          />
+        </Field>
+
+        <Field label="Descrição (opcional)">
+          <input
+            className="input-flat"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </Field>
+
+        {error && (
+          <div role="alert" className="text-sm text-error bg-error/10 rounded-2xl px-4 py-3">
+            {error}
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-2">
+          <button type="button" className="btn-flat-neutral flex-1" onClick={onClose}>
+            Cancelar
+          </button>
+          <button type="submit" className="btn-flat-primary flex-1" disabled={submitting}>
+            {submitting ? "Criando…" : "Criar"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function EditModal({
+  dept,
+  onClose,
+  onSaved,
+}: {
+  dept: ApiDepartment;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState(dept.name);
+  const [kind, setKind] = useState(dept.kind);
+  const [whatsappNumber, setWhatsappNumber] = useState(dept.whatsappNumber ?? "");
+  const [description, setDescription] = useState(dept.description ?? "");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    try {
+      await apiFetch(`/departments/${dept.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name,
+          kind,
+          whatsappNumber: whatsappNumber || null,
+          description: description || null,
+        }),
+      });
+      onSaved();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Modal onClose={onClose}>
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <div>
+          <h3 className="text-lg font-bold">Editar nó</h3>
+          <p className="text-sm text-base-content/60">{dept.name}</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Nomenclatura">
+            <KindSelect value={kind} onChange={setKind} />
+          </Field>
+          <Field label="Nome">
+            <input
+              className="input-flat"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </Field>
+        </div>
+
+        <Field label="Número WhatsApp (opcional)">
+          <input
+            className="input-flat"
+            placeholder="+55…"
+            pattern="\+\d{8,15}"
+            value={whatsappNumber}
+            onChange={(e) => setWhatsappNumber(e.target.value)}
+          />
+        </Field>
+
+        <Field label="Descrição (opcional)">
+          <input
+            className="input-flat"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </Field>
+
+        {error && (
+          <div role="alert" className="text-sm text-error bg-error/10 rounded-2xl px-4 py-3">
+            {error}
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-2">
+          <button type="button" className="btn-flat-neutral flex-1" onClick={onClose}>
+            Cancelar
+          </button>
+          <button type="submit" className="btn-flat-primary flex-1" disabled={submitting}>
+            {submitting ? "Salvando…" : "Salvar"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function KindSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <>
+      <input
+        className="input-flat"
+        list="org-kind-presets"
+        value={value}
+        onChange={(e) => onChange(e.target.value.toUpperCase())}
+        placeholder="DEPARTAMENTO"
+      />
+      <datalist id="org-kind-presets">
+        {KIND_PRESETS.map((k) => (
+          <option key={k} value={k} />
+        ))}
+      </datalist>
+    </>
   );
 }
 
@@ -181,46 +498,6 @@ type WaSession = {
   status: "DISCONNECTED" | "CONNECTING" | "CONNECTED" | "AUTH_FAILURE" | string;
   phoneNumber: string | null;
 };
-
-function WhatsappStatusButton({
-  dept,
-  onConnect,
-}: {
-  dept: ApiDepartment;
-  onConnect: () => void;
-}) {
-  const [session, setSession] = useState<WaSession | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    apiFetch<WaSession>(`/whatsapp/sessions/${dept.id}`)
-      .then((s) => alive && setSession(s))
-      .catch(() => alive && setSession({ status: "DISCONNECTED", phoneNumber: null }));
-    return () => {
-      alive = false;
-    };
-  }, [dept.id]);
-
-  const connected = session?.status === "CONNECTED";
-  return (
-    <button
-      type="button"
-      className={connected ? "btn-flat-neutral flex-1" : "btn-flat-primary flex-1"}
-      onClick={onConnect}
-    >
-      <span
-        className={`w-2 h-2 rounded-full ${
-          connected
-            ? "bg-emerald-400"
-            : session?.status === "CONNECTING"
-              ? "bg-amber-400 animate-pulse"
-              : "bg-base-content/30"
-        }`}
-      />
-      {connected ? "WhatsApp conectado" : "Conectar via QR"}
-    </button>
-  );
-}
 
 function ConnectWhatsappModal({
   dept,
@@ -252,15 +529,12 @@ function ConnectWhatsappModal({
 
     async function loadQr() {
       try {
-        const { loadMediaObjectUrl } = await import("../../lib/apiClient");
-        // reaproveita o helper de blob com Authorization (apiFetch puro não baixa binário)
         const url = await loadAuthBlob(`/whatsapp/sessions/${dept.id}/qr.png`);
         if (!alive) return;
         if (qrUrl) URL.revokeObjectURL(qrUrl);
         setQrUrl(url);
-        void loadMediaObjectUrl;
       } catch {
-        // QR ainda não disponível — vai tentar de novo no próximo tick
+        // ainda não disponível
       }
     }
 
@@ -271,7 +545,7 @@ function ConnectWhatsappModal({
         setStatus(s.status);
         if (s.status !== "CONNECTED") void loadQr();
       } catch {
-        /* silencioso — segue tentando */
+        /* silencioso */
       }
     }
 
@@ -293,8 +567,8 @@ function ConnectWhatsappModal({
         <div className="space-y-1">
           <h3 className="text-lg font-bold">Conectar {dept.name}</h3>
           <p className="text-sm text-base-content/60">
-            Abra o WhatsApp no celular do número <strong>{dept.whatsappNumber}</strong>,
-            vá em <em>Aparelhos conectados</em> e escaneie.
+            Abra o WhatsApp do número <strong>{dept.whatsappNumber}</strong>, vá
+            em <em>Aparelhos conectados</em> e escaneie.
           </p>
         </div>
 
@@ -349,130 +623,12 @@ function Modal({
       onClick={onClose}
     >
       <div
-        className="surface-card p-6 w-full max-w-md animate-scale-in"
+        className="surface-card p-6 w-full max-w-md max-h-[90vh] overflow-y-auto scrollbar-soft animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
         {children}
       </div>
     </div>
-  );
-}
-
-function CreateDepartmentModal({
-  onClose,
-  onCreated,
-}: {
-  onClose: () => void;
-  onCreated: () => void;
-}) {
-  const { items: secretarias } = useSecretarias();
-  const [name, setName] = useState("");
-  const [whatsappNumber, setWhatsappNumber] = useState("");
-  const [description, setDescription] = useState("");
-  const [secretariaId, setSecretariaId] = useState<string>("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setSubmitting(true);
-    try {
-      await apiFetch("/departments", {
-        method: "POST",
-        body: JSON.stringify({
-          name,
-          whatsappNumber,
-          description: description || undefined,
-          secretariaId: secretariaId || undefined,
-        }),
-      });
-      onCreated();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <Modal onClose={onClose}>
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <div>
-          <h3 className="text-lg font-bold">Novo departamento</h3>
-          <p className="text-sm text-base-content/60">
-            Cadastre o setor, seu número de WhatsApp e a secretaria a que pertence.
-          </p>
-        </div>
-
-        <Field label="Nome">
-          <input
-            type="text"
-            className="input-flat"
-            placeholder="Ex.: Atendimento Cidadão"
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </Field>
-
-        <Field label="Secretaria">
-          <div className="relative">
-            <select
-              className="input-flat appearance-none pr-10"
-              value={secretariaId}
-              onChange={(e) => setSecretariaId(e.target.value)}
-            >
-              <option value="">— sem secretaria —</option>
-              {secretarias.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-base-content/50">
-              <IconChevronDown size={16} />
-            </span>
-          </div>
-        </Field>
-
-        <Field label="Número WhatsApp" hint="Formato internacional. Ex.: +5511999999999">
-          <input
-            type="text"
-            className="input-flat"
-            placeholder="+55…"
-            required
-            pattern="\+\d{8,15}"
-            value={whatsappNumber}
-            onChange={(e) => setWhatsappNumber(e.target.value)}
-          />
-        </Field>
-
-        <Field label="Descrição (opcional)">
-          <input
-            type="text"
-            className="input-flat"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </Field>
-
-        {error && (
-          <div role="alert" className="text-sm text-error bg-error/10 rounded-2xl px-4 py-3">
-            {error}
-          </div>
-        )}
-
-        <div className="flex gap-2 pt-2">
-          <button type="button" className="btn-flat-neutral flex-1" onClick={onClose}>
-            Cancelar
-          </button>
-          <button type="submit" className="btn-flat-primary flex-1" disabled={submitting}>
-            {submitting ? "Criando…" : "Criar"}
-          </button>
-        </div>
-      </form>
-    </Modal>
   );
 }
 

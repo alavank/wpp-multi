@@ -38,16 +38,11 @@ const NAV: NavItem[] = [
     match: (p) => p.startsWith("/admin/permissions"),
   },
   {
-    to: "/admin/secretarias",
-    label: "Secretarias",
-    icon: <IconBuilding />,
-    match: (p) => p.startsWith("/admin/secretarias"),
-  },
-  {
     to: "/admin/departments",
-    label: "Departamentos",
+    label: "Organização",
     icon: <IconBuilding />,
-    match: (p) => p.startsWith("/admin/departments"),
+    match: (p) =>
+      p.startsWith("/admin/departments") || p.startsWith("/admin/secretarias"),
   },
   {
     to: "/admin/users",

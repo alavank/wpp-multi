@@ -93,48 +93,37 @@ enum Permission {
 }
 
 // ---------------------------------------------------------------------
-// Secretarias — agrupamento administrativo de departamentos
-// (ex.: Secretaria de Saúde > Departamento de Atendimento UBS)
-// ---------------------------------------------------------------------
-
-model Secretaria {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name        String   @unique
-  description String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  deletedAt   DateTime?
-
-  departments Department[]
-  users       User[]
-
-  @@map("secretarias")
-}
-
-// ---------------------------------------------------------------------
-// Departamentos / Setores (cada um com seu número WhatsApp dedicado)
+// Estrutura organizacional — árvore livre.
+// Um único `Department` representa qualquer nível: Organização, Secretaria,
+// Coordenação, Departamento, Setor, etc. (campo `kind` é texto livre).
+// `parentId` referencia outro nó do mesmo tipo (auto-relação).
+// `whatsappNumber` é opcional — só os nós-folha que recebem fila têm número.
 // ---------------------------------------------------------------------
 
 model Department {
   id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name            String
   description     String?
-  whatsappNumber  String   @unique
+  /// Texto livre: "ORGANIZACAO", "SECRETARIA", "DEPARTAMENTO", "SETOR", etc.
+  kind            String   @default("DEPARTAMENTO")
+  parentId        String?  @db.Uuid
+  whatsappNumber  String?  @unique
   isActive        Boolean  @default(true)
-  secretariaId    String?  @db.Uuid
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   deletedAt       DateTime?
 
-  secretaria      Secretaria?       @relation(fields: [secretariaId], references: [id])
+  parent          Department?  @relation("OrgTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children        Department[] @relation("OrgTree")
+
   members         DepartmentMember[]
   conversations   Conversation[]
   contacts        Contact[]
   groups          Group[]
   whatsappSession WhatsappSession?
 
-  @@index([secretariaId])
+  @@index([parentId])
+  @@index([kind])
   @@map("departments")
 }
 
@@ -144,20 +133,18 @@ model Department {
 // ---------------------------------------------------------------------
 
 model User {
-  id           String   @id @db.Uuid
-  email        String   @unique
-  fullName     String
-  photoUrl     String?
-  cpf          String?  @unique
-  bio          String?
-  role         Role     @default(AGENT)
-  isActive     Boolean  @default(true)
-  secretariaId String?  @db.Uuid
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  deletedAt    DateTime?
+  id        String   @id @db.Uuid
+  email     String   @unique
+  fullName  String
+  photoUrl  String?
+  cpf       String?  @unique
+  bio       String?
+  role      Role     @default(AGENT)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
-  secretaria  Secretaria? @relation(fields: [secretariaId], references: [id])
   memberships DepartmentMember[]
   permissions UserPermission[]
   assignedConversations Conversation[]   @relation("AssignedAgent")
@@ -170,7 +157,6 @@ model User {
   auditLogs           AuditLog[]
 
   @@index([role])
-  @@index([secretariaId])
   @@map("users")
 }
 

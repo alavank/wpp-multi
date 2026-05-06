@@ -1,14 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../lib/apiClient";
 
+/**
+ * Department é qualquer nó da árvore organizacional (Organização, Secretaria,
+ * Coordenação, Departamento, Setor, …). `kind` é texto livre. `parentId`
+ * referencia outro nó (auto-relação). Apenas nós com `whatsappNumber`
+ * recebem fila e podem ser conectados via QR.
+ */
 export type ApiDepartment = {
   id: string;
   name: string;
   description: string | null;
-  whatsappNumber: string;
+  kind: string;
+  parentId: string | null;
+  whatsappNumber: string | null;
   isActive: boolean;
-  secretariaId: string | null;
-  secretaria: { id: string; name: string } | null;
 };
 
 export function useDepartments() {

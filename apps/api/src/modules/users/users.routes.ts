@@ -12,7 +12,6 @@ const createBody = z.object({
   photoUrl: z.string().url().nullable().optional(),
   role: z.enum(["SUPER_ADMIN", "DEPT_ADMIN", "AGENT"]),
   password: z.string().min(8),
-  secretariaId: z.string().uuid().nullable().optional(),
   departmentIds: z.array(z.string().uuid()).default([]),
 });
 
@@ -23,7 +22,6 @@ const updateBody = z.object({
   photoUrl: z.string().url().nullable().optional(),
   role: z.enum(["SUPER_ADMIN", "DEPT_ADMIN", "AGENT"]).optional(),
   isActive: z.boolean().optional(),
-  secretariaId: z.string().uuid().nullable().optional(),
   departmentIds: z.array(z.string().uuid()).optional(),
 });
 
@@ -48,7 +46,6 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
       cpf: u?.cpf ?? null,
       bio: u?.bio ?? null,
       photoUrl: u?.photoUrl ?? null,
-      secretariaId: u?.secretariaId ?? null,
     };
   });
 
@@ -97,7 +94,6 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
         bio: u.bio,
         role: u.role,
         isActive: u.isActive,
-        secretariaId: u.secretariaId,
         departmentIds: u.memberships.map((m) => m.departmentId),
       })),
     };
@@ -147,7 +143,6 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
         cpf: data.cpf,
         photoUrl: data.photoUrl ?? null,
         role: data.role,
-        secretariaId: data.secretariaId ?? null,
         memberships: {
           create: data.departmentIds.map((departmentId) => ({ departmentId })),
         },
@@ -201,7 +196,6 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
           photoUrl: data.photoUrl,
           role: data.role,
           isActive: data.isActive,
-          secretariaId: data.secretariaId,
         },
       });
       if (data.departmentIds) {

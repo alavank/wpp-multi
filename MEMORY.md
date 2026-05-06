@@ -27,20 +27,22 @@ Sistema **on-premise** de **multiatendimento WhatsApp** para uso em vários depa
 
 ---
 
-## Hierarquia organizacional
+## Hierarquia organizacional (organograma flexível)
 
-Prefeitura → **Secretaria** (`Secretaria`) → **Departamento** (`Department`) → **Usuários** (`User`).
+Uma única tabela `Department` representa **qualquer nível** do organograma — Organização, Secretaria, Coordenação, Departamento, Setor, Equipe, etc. Campos relevantes:
 
-- Cada **Secretaria** agrupa N departamentos (ex.: Saúde, Educação, Obras).
-- Cada **Departamento** tem seu próprio número WhatsApp e fila independente.
-- Cada **Usuário** opcionalmente pertence a uma `secretariaId` (informativo) e tem N `DepartmentMember` (vínculos efetivos com setores).
+- `parentId` (UUID, opcional) → auto-relação. Define a árvore.
+- `kind` (TEXT, default `DEPARTAMENTO`) → nomenclatura textual livre. A UI sugere presets (ORGANIZACAO/SECRETARIA/COORDENACAO/DEPARTAMENTO/SETOR/EQUIPE) mas aceita qualquer string.
+- `whatsappNumber` (TEXT, opcional, único quando presente) → só nós-folha que recebem fila têm número. Botão "Conectar QR" só aparece nesses.
+
+Cada usuário se vincula a N nós da árvore via `DepartmentMember` (em qualquer nível: secretaria, departamento, setor, etc.). Não existe mais conceito separado de "Secretaria" — tudo é um `Department` com `kind` apropriado.
 
 ## Hierarquia de papéis
 
 | Papel | Poderes |
 |---|---|
-| **Super Admin** | Cria secretarias, departamentos, vincula números WhatsApp, gerencia usuários globais e permissões |
-| **Admin de Departamento** (Coordenador) | Dashboards de produtividade do setor, controle de filas, **cadastra Atendentes nos seus departamentos**, libera permissões dentro do escopo dele |
+| **Super Admin** | Edita o organograma inteiro, vincula números WhatsApp aos nós, gerencia usuários globais e permissões |
+| **Admin de Departamento** (Coordenador) | Dashboards de produtividade do setor, controle de filas, **cadastra Atendentes nos nós sob administração dele**, libera permissões dentro do escopo dele |
 | **Atendente** | Acessa filas do(s) setor(es) que pertence, atende, transfere, encerra, visualiza histórico. Cadastro exige Nome Completo, **CPF**, e-mail. Foto opcional, pode ser carregada depois pelo próprio usuário (ProfileModal na sidebar). |
 
 Um usuário pode pertencer a **múltiplos departamentos** (`DepartmentMember`). O **role** (Super/Dept admin/Agent) é o piso de capacidades — o **RBAC granular por usuário** vive em `UserPermission` (concede/revoga ações específicas, opcionalmente escopado a um departamento).

@@ -3,17 +3,11 @@ import { apiFetch } from "../../lib/apiClient";
 import { uploadAvatar } from "../../lib/avatarUpload";
 import { useAuthStore } from "../../stores/authStore";
 import { useDepartments } from "../../hooks/useDepartments";
-import { useSecretarias } from "../../hooks/useSecretarias";
 import type { Role } from "@wpp/shared";
 import { AdminPage } from "../../components/AdminPage";
 import { Avatar } from "../../components/Avatar";
-import { DepartmentMultiSelect } from "../../components/DepartmentMultiSelect";
-import {
-  IconChevronDown,
-  IconPlus,
-  IconSearch,
-  IconUsers,
-} from "../../components/Icon";
+import { OrgUnitTreeSelect } from "../../components/OrgUnitTreeSelect";
+import { IconPlus, IconSearch, IconUsers } from "../../components/Icon";
 
 type ApiUser = {
   id: string;
@@ -24,7 +18,6 @@ type ApiUser = {
   bio: string | null;
   role: Role;
   isActive: boolean;
-  secretariaId: string | null;
   departmentIds: string[];
 };
 
@@ -39,15 +32,12 @@ export function UsersPage() {
   const isSuper = role === "SUPER_ADMIN";
   const canManage = isSuper || role === "DEPT_ADMIN";
   const { items: departments } = useDepartments();
-  const { items: secretarias } = useSecretarias();
 
   const [items, setItems] = useState<ApiUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState("");
-  const [secFilter, setSecFilter] = useState<string>("");
-  const [deptFilter, setDeptFilter] = useState<string>("");
 
   const refetch = useCallback(async () => {
     setLoading(true);
@@ -68,8 +58,6 @@ export function UsersPage() {
 
   const filtered = useMemo(() => {
     return items.filter((u) => {
-      if (secFilter && u.secretariaId !== secFilter) return false;
-      if (deptFilter && !u.departmentIds.includes(deptFilter)) return false;
       if (!search.trim()) return true;
       const q = search.trim().toLowerCase();
       return (
@@ -78,18 +66,12 @@ export function UsersPage() {
         (u.cpf ?? "").includes(q)
       );
     });
-  }, [items, search, secFilter, deptFilter]);
-
-  // Departamentos disponíveis no filtro (limitados pela secretaria escolhida)
-  const deptOptions = useMemo(() => {
-    if (!secFilter) return departments;
-    return departments.filter((d) => d.secretariaId === secFilter);
-  }, [departments, secFilter]);
+  }, [items, search]);
 
   return (
     <AdminPage
       title="Usuários"
-      subtitle="Atendentes e administradores agrupados por secretaria e departamento."
+      subtitle="Atendentes e administradores e seus vínculos no organograma."
       actions={
         canManage && (
           <button
@@ -102,43 +84,16 @@ export function UsersPage() {
         )
       }
     >
-      {/* Filtros */}
-      <div className="space-y-3">
-        <label className="flex items-center gap-2 bg-base-200 rounded-full px-3.5 py-2 text-sm focus-within:ring-2 focus-within:ring-primary/30">
-          <IconSearch size={15} />
-          <input
-            type="search"
-            className="bg-transparent border-0 outline-none w-full placeholder:text-base-content/45"
-            placeholder="Buscar por nome, e-mail ou CPF…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </label>
-
-        <div className="flex flex-wrap gap-3">
-          <SelectPill
-            label="Secretaria"
-            value={secFilter}
-            onChange={(v) => {
-              setSecFilter(v);
-              setDeptFilter("");
-            }}
-            options={[
-              { value: "", label: "Todas as secretarias" },
-              ...secretarias.map((s) => ({ value: s.id, label: s.name })),
-            ]}
-          />
-          <SelectPill
-            label="Departamento"
-            value={deptFilter}
-            onChange={setDeptFilter}
-            options={[
-              { value: "", label: "Todos os departamentos" },
-              ...deptOptions.map((d) => ({ value: d.id, label: d.name })),
-            ]}
-          />
-        </div>
-      </div>
+      <label className="flex items-center gap-2 bg-base-200 rounded-full px-3.5 py-2 text-sm focus-within:ring-2 focus-within:ring-primary/30">
+        <IconSearch size={15} />
+        <input
+          type="search"
+          className="bg-transparent border-0 outline-none w-full placeholder:text-base-content/45"
+          placeholder="Buscar por nome, e-mail ou CPF…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </label>
 
       {error && (
         <div role="alert" className="text-sm text-error bg-error/10 rounded-2xl px-4 py-3">
@@ -155,12 +110,7 @@ export function UsersPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map((u) => (
-            <UserCard
-              key={u.id}
-              user={u}
-              departments={departments}
-              secretarias={secretarias}
-            />
+            <UserCard key={u.id} user={u} departments={departments} />
           ))}
         </div>
       )}
@@ -175,38 +125,6 @@ export function UsersPage() {
         />
       )}
     </AdminPage>
-  );
-}
-
-function SelectPill({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-}) {
-  return (
-    <label className="relative">
-      <span className="sr-only">{label}</span>
-      <select
-        className="appearance-none bg-base-200 border-0 rounded-full pl-4 pr-10 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-base-content/50">
-        <IconChevronDown size={16} />
-      </span>
-    </label>
   );
 }
 
@@ -227,18 +145,13 @@ function EmptyState() {
 function UserCard({
   user,
   departments,
-  secretarias,
 }: {
   user: ApiUser;
   departments: { id: string; name: string }[];
-  secretarias: { id: string; name: string }[];
 }) {
   const deptNames = user.departmentIds
     .map((id) => departments.find((d) => d.id === id)?.name)
     .filter(Boolean) as string[];
-  const secName = user.secretariaId
-    ? secretarias.find((s) => s.id === user.secretariaId)?.name
-    : null;
 
   return (
     <article className="surface-soft p-5 flex flex-col gap-4">
@@ -276,25 +189,16 @@ function UserCard({
         </div>
       </div>
 
-      {(secName || deptNames.length > 0) && (
-        <div className="space-y-1.5">
-          {secName && (
-            <div className="text-[11px] font-semibold text-base-content/55 uppercase tracking-wider">
-              {secName}
-            </div>
-          )}
-          {deptNames.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {deptNames.map((n) => (
-                <span
-                  key={n}
-                  className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-base-100 text-base-content/70"
-                >
-                  {n}
-                </span>
-              ))}
-            </div>
-          )}
+      {deptNames.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {deptNames.map((n) => (
+            <span
+              key={n}
+              className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-base-100 text-base-content/70"
+            >
+              {n}
+            </span>
+          ))}
         </div>
       )}
     </article>
@@ -495,10 +399,10 @@ function CreateUserModal({
         </Field>
 
         <Field
-          label="Departamentos"
-          hint="Marque todos os locais onde este usuário atuará. Pode ser de várias secretarias ao mesmo tempo."
+          label="Locais da organização"
+          hint="Marque os locais onde este usuário está vinculado. Pode ser em qualquer nível: secretaria, departamento, setor."
         >
-          <DepartmentMultiSelect
+          <OrgUnitTreeSelect
             value={form.departmentIds}
             onChange={(ids) => setForm((f) => ({ ...f, departmentIds: ids }))}
           />

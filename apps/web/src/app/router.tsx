@@ -3,7 +3,6 @@ import { AppShell } from "./AppShell";
 import { LoginPage } from "../features/auth/LoginPage";
 import { RequireAuth } from "./RequireAuth";
 import { DepartmentsPage } from "../features/departments/DepartmentsPage";
-import { SecretariasPage } from "../features/secretarias/SecretariasPage";
 import { UsersPage } from "../features/users/UsersPage";
 import { PermissionsPage } from "../features/permissions/PermissionsPage";
 import { AuditPage } from "../features/audit/AuditPage";
@@ -18,10 +17,6 @@ const router = createBrowserRouter([
         <AppShell />
       </RequireAuth>
     ),
-  },
-  {
-    path: "/admin/secretarias",
-    element: <RequireAuth><SecretariasPage /></RequireAuth>,
   },
   {
     path: "/admin/departments",
